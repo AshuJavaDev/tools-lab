@@ -112,7 +112,7 @@ button.sm{padding:5px 10px;font-size:13px}
     }
     db.collection("files").orderBy("ts","desc").onSnapshot(function(snap){
       clearTimeout(timer);
-      rows = snap.docs.map(function(d){var x=d.data()||{};x.id=d.id;return x});
+      rows = snap.docs.map(function(d){return Object.assign({}, d.data()||{}, {id:d.id})});
       if(!snap.metadata.fromCache) $("status").textContent = "";
       render();
     }, function(err){
@@ -132,7 +132,12 @@ button.sm{padding:5px 10px;font-size:13px}
   }
   async function delRow(id){
     if(usingLocal){ rows = rows.filter(function(x){return x.id!==id}); lsSave(); render(); return; }
-    await db.doc("files/"+id).delete();
+    var ref = db.collection("files").doc(id);
+    await ref.delete();
+    var chk = await ref.get();
+    var still = chk && (typeof chk.exists === "function" ? chk.exists() : chk.exists);
+    if(still){ throw new Error("delete reported ok but entry still exists"); }
+    $("status").textContent="";
   }
 
   // ---- form ----
@@ -223,8 +228,15 @@ button.sm{padding:5px 10px;font-size:13px}
       var eb=el("button","sm","Edit"); eb.onclick=function(){startEdit(r)};
       var db_=el("button","sm","Delete");
       db_.onclick=function(){
-        if(db_.dataset.armed){ delRow(r.id).catch(function(){toast("Could not delete")}); }
-        else { db_.dataset.armed="1"; db_.textContent="Tap again to delete"; setTimeout(function(){delete db_.dataset.armed;db_.textContent="Delete"},2500); }
+        if(db_.dataset.armed){
+          db_.disabled=true; db_.textContent="Deleting…";
+          delRow(r.id).then(function(){toast("Deleted")}).catch(function(e){
+            db_.disabled=false; db_.textContent="Delete"; delete db_.dataset.armed;
+            $("status").textContent="Could not delete: "+((e&&(e.code||e.message))||"unknown error");
+            toast("Could not delete");
+          });
+        }
+        else { db_.dataset.armed="1"; db_.textContent="Tap again to delete"; setTimeout(function(){if(db_.dataset.armed){delete db_.dataset.armed;db_.textContent="Delete"}},5000); }
       };
       a.appendChild(eb); a.appendChild(db_); it.appendChild(a);
       list.appendChild(it);
