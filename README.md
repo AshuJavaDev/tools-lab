@@ -5,7 +5,10 @@ Small, single-file tools I built for my own study and work. Each one runs entire
 | Tool | What it does | Live link |
 |---|---|---|
 | Page Pacer (v1.4) | Reads a PDF at a steady pace and lets you highlight and export it | https://ashujavadev.github.io/tools-lab/page-pacer/ |
-| File Log | A searchable list of what I saved and where (stored in your browser) | https://ashujavadev.github.io/tools-lab/file-log/ |
+| File Log (v1.5) | A searchable list of what I saved and where: list + folder-tree view, Copy folder, one-click Open in File Explorer (with the helper below). Stored in your browser here | https://ashujavadev.github.io/tools-lab/file-log/ |
+
+## File Log helper (Windows, optional)
+`file-log/helper/FileLogOpener.ahk` (AutoHotkey v2) makes the 📂 Open button work: the button copies a `filelog:open?p=<path>` line, and the script, running in the background, opens File Explorer at that folder (or with that file highlighted). It never opens or runs the file, and ignores anything else you copy. Double-click it to start; put a shortcut in `shell:startup` to start it with Windows.
 
 ## Tech
 Plain HTML, CSS and JavaScript. Page Pacer uses pdf.js and pdf-lib from cdnjs.

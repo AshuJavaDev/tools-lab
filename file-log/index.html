@@ -39,6 +39,24 @@ button.sm{padding:5px 10px;font-size:13px}
 .top input{flex:1}
 .warn{color:var(--red);font-size:13px}
 .hint{font-size:12px;color:var(--mut);margin-top:4px}
+.views{display:flex;gap:6px;margin-top:8px}
+.olink{display:inline-block;text-decoration:none;cursor:pointer;font-family:inherit;color:var(--acc);background:var(--accbg);border:1px solid var(--acc);border-radius:8px;padding:5px 10px;font-size:13px;font-weight:600}
+.tree summary .olink{padding:1px 8px;font-size:12px;margin-left:8px;font-weight:500}
+.fnote .olink,.leaf .olink{padding:2px 9px;font-size:12px}
+.tree details{margin-left:12px;border-left:1px dashed var(--line);padding-left:8px}
+.tree>details{margin-left:0;border-left:0;padding-left:0}
+.tree summary{cursor:pointer;padding:6px 0;list-style:none}
+.tree summary::-webkit-details-marker{display:none}
+.tree summary:before{content:"\25B8";display:inline-block;width:16px;color:var(--mut)}
+.tree details[open]>summary:before{content:"\25BE"}
+.tree .fn{font-weight:600}
+.tree .cnt{color:var(--mut);font-size:12px;margin-left:6px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:0 7px}
+.fnote{font-size:13px;color:var(--mut);margin:0 0 6px 16px}
+.leaf{margin-left:12px;padding:6px 0 6px 10px;border-left:1px dashed var(--line)}
+.leaf .ln{font-weight:500;word-break:break-word}
+.leaf .lm{font-size:12px;color:var(--mut)}
+.leaf .lnote{font-size:13.5px}
+.leaf .acts button,.fnote button{padding:2px 9px;font-size:12px}
 </style>
 </head>
 <body>
@@ -74,6 +92,7 @@ button.sm{padding:5px 10px;font-size:13px}
       <input id="q" type="search" placeholder="Search name, path, note, project…">
       <button class="sm" id="csvBtn" title="Copy everything as CSV">Copy CSV</button>
     </div>
+    <div class="views"><span class="chip on" id="vList">&#9776; List</span><span class="chip" id="vTree">&#128194; Folders</span></div>
     <div class="chips" id="chips"></div>
     <div class="meta" id="count"></div>
     <div id="list"></div>
@@ -213,6 +232,7 @@ button.sm{padding:5px 10px;font-size:13px}
     var shown = rows.filter(function(r){return matches(r,q)});
     shown.sort(function(a,b){ return (b.date||"").localeCompare(a.date||"") || (b.ts||0)-(a.ts||0) });
     $("count").textContent = shown.length+" of "+rows.length+" entries";
+    if(view==="tree"){ renderTree(shown,q); return; }
     var list=$("list"); list.textContent="";
     if(!shown.length){ list.appendChild(el("div","empty", rows.length?"Nothing matches your search.":"No entries yet. Add your first file above.")); return; }
     shown.forEach(function(r){
@@ -225,6 +245,7 @@ button.sm{padding:5px 10px;font-size:13px}
       it.appendChild(m);
       if(r.note) it.appendChild(el("div","note",r.note));
       var a=el("div","acts");
+      var fb=el("button","sm","\uD83D\uDCC2 Copy folder"); fb.title="Copy the folder path \u2014 paste it in File Explorer's address bar to open the folder"; fb.onclick=function(){copy(folderOf(r))};
       var eb=el("button","sm","Edit"); eb.onclick=function(){startEdit(r)};
       var db_=el("button","sm","Delete");
       db_.onclick=function(){
@@ -238,10 +259,95 @@ button.sm{padding:5px 10px;font-size:13px}
         }
         else { db_.dataset.armed="1"; db_.textContent="Tap again to delete"; setTimeout(function(){if(db_.dataset.armed){delete db_.dataset.armed;db_.textContent="Delete"}},5000); }
       };
-      a.appendChild(eb); a.appendChild(db_); it.appendChild(a);
+      if(r.path){ a.appendChild(openLink(r.path)); a.appendChild(fb); } a.appendChild(eb); a.appendChild(db_); it.appendChild(a);
       list.appendChild(it);
     });
   }
+  // ---- folders (tree) view ----
+  var view="list", openSet={};
+  try{ view=localStorage.getItem("filelog.view")||"list"; openSet=JSON.parse(localStorage.getItem("filelog.open")||"{}")||{}; }catch(e){}
+  function markView(){ $("vList").classList.toggle("on",view==="list"); $("vTree").classList.toggle("on",view==="tree"); }
+  function setView(v){ view=v; try{localStorage.setItem("filelog.view",v)}catch(e){} markView(); render(); }
+  $("vList").onclick=function(){setView("list")};
+  $("vTree").onclick=function(){setView("tree")};
+  markView();
+  // Open button: copies "filelog:open?p=<path>"; FileLogOpener.ahk (AutoHotkey v2) on the laptop opens File Explorer
+  function openLink(p){
+    var a=document.createElement("button"); a.type="button"; a.className="olink"; a.textContent="\uD83D\uDCC2 Open";
+    var url="filelog:open?p="+encodeURIComponent((p||"").trim().replace(/^["']|["']$/g,""));
+    a.title="Open in File Explorer (needs FileLogOpener.ahk running on this laptop)";
+    a.addEventListener("click",function(ev){
+      ev.stopPropagation(); ev.preventDefault();
+      try{ navigator.clipboard.writeText(url).then(function(){toast("Opening in File Explorer\u2026")},function(){toast("Copy blocked \u2014 use Copy folder")}); }
+      catch(e){ toast("Copy blocked \u2014 use Copy folder"); }
+    });
+    return a;
+  }
+  function folderOf(r){
+    var p=(r.path||"").trim().replace(/^["']|["']$/g,"").replace(/[\\\/]+$/,"");
+    if((r.type||"").toLowerCase()==="folder") return p;
+    var i=Math.max(p.lastIndexOf("\\"),p.lastIndexOf("/"));
+    var last=i>=0?p.slice(i+1):p;
+    if(r.name && last.toLowerCase()===r.name.toLowerCase() && i>0) return p.slice(0,i);
+    if(/\.[A-Za-z0-9]{1,5}$/.test(last) && i>0) return p.slice(0,i);
+    return p;
+  }
+  function splitPath(p){ return (p||"").trim().replace(/^["']|["']$/g,"").split(/[\\\/]/).filter(Boolean); }
+  function renderTree(shown,q){
+    var list=$("list"); list.textContent="";
+    if(!shown.length){ list.appendChild(el("div","empty", rows.length?"Nothing matches your search.":"No entries yet. Add your first file above.")); return; }
+    function mk(){return {kids:{},files:[],info:null,count:0}}
+    var root=mk();
+    function node(parts,pre){ var n=root, acc=(pre||[]).slice(); parts.forEach(function(s){ acc.push(s); if(!n.kids[s]) n.kids[s]=mk(); n=n.kids[s]; if(!n.full) n.full=acc.join("\\"); }); return n; }
+    shown.forEach(function(r){
+      var parts=splitPath(r.path), pre=[];
+      if(parts.length>=3 && /^[a-z]:$/i.test(parts[0]) && parts[1].toLowerCase()==="users"){ pre=parts.slice(0,3); parts=parts.slice(3); }
+      if((r.type||"").toLowerCase()==="folder" && parts.length){ var fnode=node(parts,pre); if(!fnode.info) fnode.info=r; else fnode.files.push(r); return; }
+      if(!parts.length){ root.files.push(r); return; }
+      var last=parts[parts.length-1];
+      var dir=(last.toLowerCase()===(r.name||"").toLowerCase())?parts.slice(0,-1):parts;
+      if(!dir.length) root.files.push(r); else node(dir,pre).files.push(r);
+    });
+    function countAll(n){ var c=n.files.length; Object.keys(n.kids).forEach(function(k){c+=countAll(n.kids[k])+(n.kids[k].info?1:0)}); n.count=c; return c; }
+    countAll(root);
+    function leaf(r){
+      var d=el("div","leaf");
+      d.appendChild(el("div","ln","\uD83D\uDCC4 "+(r.name||"(no name)")));
+      d.appendChild(el("div","lm",[r.project,r.type,r.ver,r.date].filter(Boolean).join(" \u00B7 ")));
+      if(r.note) d.appendChild(el("div","lnote",r.note));
+      var a=el("div","acts");
+      var fb=el("button","sm","\uD83D\uDCC2 Copy folder"); fb.title="Paste in File Explorer's address bar to open the folder"; fb.onclick=function(){copy(folderOf(r))};
+      var cb=el("button","sm","Copy file path"); cb.title="Pasting this in Explorer OPENS the file"; cb.onclick=function(){copy(r.path||"")};
+      var eb=el("button","sm","Edit"); eb.onclick=function(){startEdit(r)};
+      if(r.path) a.appendChild(openLink(r.path)); a.appendChild(fb); a.appendChild(cb); a.appendChild(eb); d.appendChild(a);
+      return d;
+    }
+    function build(n,key,name,depth){
+      var det=document.createElement("details");
+      det.open = q ? true : (Object.prototype.hasOwnProperty.call(openSet,key) ? !!openSet[key] : depth<2);
+      var s=document.createElement("summary");
+      s.appendChild(el("span","fn","\uD83D\uDCC1 "+name));
+      var total=n.count; if(total) s.appendChild(el("span","cnt",total+" inside"));
+      if(n.full && /^[a-z]:\\/i.test(n.full)) s.appendChild(openLink(n.full));
+      det.appendChild(s);
+      det.addEventListener("toggle",function(){ if($("q").value.trim()) return; openSet[key]=det.open; try{localStorage.setItem("filelog.open",JSON.stringify(openSet))}catch(e){} });
+      if(n.info){
+        var fn=el("div","fnote",(n.info.note||"")+(n.info.ver?" \u00B7 "+n.info.ver:"")+" ");
+        var cb=el("button","sm","Copy path"); cb.onclick=function(){copy(n.info.path||"")};
+        var e=el("button","sm","Edit"); e.onclick=function(){startEdit(n.info)};
+        fn.appendChild(cb); fn.appendChild(document.createTextNode(" ")); fn.appendChild(e);
+        det.appendChild(fn);
+      }
+      Object.keys(n.kids).sort(function(a,b){return a.localeCompare(b)}).forEach(function(k){ det.appendChild(build(n.kids[k],key+"/"+k,k,depth+1)); });
+      n.files.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"")}).forEach(function(r){ det.appendChild(leaf(r)); });
+      return det;
+    }
+    var wrap=el("div","tree");
+    Object.keys(root.kids).sort(function(a,b){return a.localeCompare(b)}).forEach(function(k){ wrap.appendChild(build(root.kids[k],k,k,0)); });
+    root.files.forEach(function(r){ wrap.appendChild(leaf(r)); });
+    list.appendChild(wrap);
+  }
+
   $("q").addEventListener("input",render);
 
   $("csvBtn").onclick=function(){
