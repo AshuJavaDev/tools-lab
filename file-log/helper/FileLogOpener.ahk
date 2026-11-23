@@ -11,6 +11,16 @@
 #SingleInstance Force
 Persistent
 
+; Start with Windows: the first time this script runs, it puts its own shortcut
+; into your Startup folder (only for your user). Delete that shortcut to undo.
+startLink := A_Startup "\FileLogOpener.lnk"
+if !FileExist(startLink) {
+    try {
+        FileCreateShortcut(A_ScriptFullPath, startLink, A_ScriptDir, , "File Log: opens folders from the Open button")
+        TrayTip("File Log Opener will now start with Windows.", "File Log")
+    }
+}
+
 OnClipboardChange(FileLogClip)
 
 FileLogClip(type) {
