@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My File Log</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mut:#667085;--line:#e3e6eb;--acc:#2b5fd9;--accbg:#e8efff;--red:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1d2128;--ink:#e8ebf0;--mut:#98a2b3;--line:#2c323b;--acc:#7aa2ff;--accbg:#232c42;--red:#ff7b6b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:6px 0 2px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{resize:vertical;min-height:44px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;border-radius:8px;cursor:pointer}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
+@media (prefers-color-scheme:dark){button.pri{color:#10151f}}
+button.sm{padding:5px 10px;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{padding:5px 11px;border-radius:99px;font-size:13px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+.chip.on{background:var(--accbg);border-color:var(--acc);color:var(--acc)}
+.item{border-top:1px solid var(--line);padding:10px 0}
+.item:first-child{border-top:0}
+.nm{font-weight:600;word-break:break-word}
+.pth{font:12.5px ui-monospace,Menlo,Consolas,monospace;color:var(--mut);word-break:break-all;cursor:pointer;margin-top:2px}
+.meta{font-size:12.5px;color:var(--mut);margin-top:4px}
+.tag{display:inline-block;background:var(--accbg);color:var(--acc);border-radius:6px;padding:1px 8px;font-size:12px;margin-right:6px}
+.note{margin-top:4px;font-size:14px}
+.acts{margin-top:6px;display:flex;gap:6px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:.95}
+.empty{color:var(--mut);text-align:center;padding:22px 0}
+.top{display:flex;gap:8px;align-items:center}
+.top input{flex:1}
+.warn{color:var(--red);font-size:13px}
+.hint{font-size:12px;color:var(--mut);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📁 My File Log</h1>
+  <div class="sub">Write down what you saved and where. Search it any time.</div>
+
+  <div class="card" id="formCard">
+    <label for="path">Path or location (paste it here)</label>
+    <textarea id="path" rows="1" placeholder='e.g. D:\PadhakuGang\PDFs\Backend_Revision_Part2.pdf'></textarea>
+    <div class="hint">Windows: select file → Ctrl+Shift+C (copy as path) → paste. Name and type fill in by themselves.</div>
+    <label for="name">File name</label>
+    <input id="name" placeholder="Backend_Revision_Part2.pdf">
+    <div class="row">
+      <div><label for="project">Project / area</label><input id="project" list="projList" placeholder="PadhakuGang"><datalist id="projList"></datalist></div>
+      <div><label for="type">Type</label><input id="type" list="typeList" placeholder="PDF"><datalist id="typeList"><option>PDF</option><option>Word</option><option>Excel</option><option>Code</option><option>Image</option><option>Notes</option><option>Video</option><option>Other</option></datalist></div>
+    </div>
+    <div class="row">
+      <div><label for="date">Date saved</label><input id="date" type="date"></div>
+      <div><label for="ver">Version (optional)</label><input id="ver" placeholder="v1.4"></div>
+    </div>
+    <label for="note">What is it? (one line)</label>
+    <input id="note" placeholder="Part 2 revision book, Lessons 6–10">
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <button class="pri" id="saveBtn">Save to log</button>
+      <button id="cancelBtn" style="display:none">Cancel edit</button>
+      <span class="warn" id="formMsg"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="top">
+      <input id="q" type="search" placeholder="Search name, path, note, project…">
+      <button class="sm" id="csvBtn" title="Copy everything as CSV">Copy CSV</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="meta" id="count"></div>
+    <div id="list"></div>
+    <div class="hint" id="status"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  var rows = [];            // {id,name,path,project,type,ver,note,date,ts}
+  var activeProj = "";
+  var editing = null;
+  var db = null, usingLocal = false, LS = "filelog.v1";
+
+  function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+  function toast(t){var e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(function(){e.classList.remove("show")},1600)}
+  function copy(t){
+    try{navigator.clipboard.writeText(t).then(function(){toast("Copied")},function(){toast("Copy blocked — select and copy manually")})}
+    catch(e){toast("Copy blocked — select and copy manually")}
+  }
+
+  // ---- storage layer ----
+  function lsLoad(){try{return JSON.parse(localStorage.getItem(LS)||"[]")}catch(e){return []}}
+  function lsSave(){try{localStorage.setItem(LS,JSON.stringify(rows))}catch(e){}}
+
+  async function init(){
+    $("date").value = today();
+    var timer = setTimeout(function(){ $("status").textContent = "Still connecting to saved log… (showing what is loaded so far)" },10000);
+    try{ db = await window.claude.use("db"); }catch(e){ db = null; }
+    if(!db){
+      usingLocal = true; rows = lsLoad(); clearTimeout(timer);
+      $("status").textContent = "Saving in this browser only (cloud storage not available here).";
+      render(); return;
+    }
+    db.collection("files").orderBy("ts","desc").onSnapshot(function(snap){
+      clearTimeout(timer);
+      rows = snap.docs.map(function(d){var x=d.data()||{};x.id=d.id;return x});
+      if(!snap.metadata.fromCache) $("status").textContent = "";
+      render();
+    }, function(err){
+      clearTimeout(timer);
+      $("status").textContent = "Could not load the saved log ("+(err&&err.code||"error")+").";
+    });
+  }
+
+  async function saveRow(r){
+    if(usingLocal){
+      var i = rows.findIndex(function(x){return x.id===r.id});
+      if(i>=0) rows[i]=r; else rows.unshift(r);
+      lsSave(); render(); return;
+    }
+    var o = {name:r.name,path:r.path,project:r.project,type:r.type,ver:r.ver,note:r.note,date:r.date,ts:r.ts};
+    await db.doc("files/"+r.id).set(o);
+  }
+  async function delRow(id){
+    if(usingLocal){ rows = rows.filter(function(x){return x.id!==id}); lsSave(); render(); return; }
+    await db.doc("files/"+id).delete();
+  }
+
+  // ---- form ----
+  function baseName(p){
+    p = p.trim().replace(/^["']|["']$/g,"");
+    var parts = p.split(/[\\\/]/).filter(Boolean);
+    return parts.length ? parts[parts.length-1] : "";
+  }
+  function typeFromName(n){
+    var m = /\.([A-Za-z0-9]+)$/.exec(n); if(!m) return "";
+    var e = m[1].toLowerCase();
+    var map={pdf:"PDF",doc:"Word",docx:"Word",xls:"Excel",xlsx:"Excel",csv:"Excel",java:"Code",js:"Code",jsx:"Code",ts:"Code",py:"Code",html:"Code",css:"Code",json:"Code",md:"Notes",txt:"Notes",png:"Image",jpg:"Image",jpeg:"Image",gif:"Image",mp4:"Video",mkv:"Video",zip:"Other"};
+    return map[e]||e.toUpperCase();
+  }
+  $("path").addEventListener("input",function(){
+    var n = baseName($("path").value);
+    if(n && (!$("name").dataset.touched)) $("name").value = n;
+    if(n && (!$("type").dataset.touched)) $("type").value = typeFromName(n);
+  });
+  $("name").addEventListener("input",function(){this.dataset.touched="1"});
+  $("type").addEventListener("input",function(){this.dataset.touched="1"});
+
+  function clearForm(){
+    ["path","name","project","type","ver","note"].forEach(function(k){$(k).value="";delete $(k).dataset.touched});
+    $("date").value = today(); editing=null;
+    $("saveBtn").textContent="Save to log"; $("cancelBtn").style.display="none"; $("formMsg").textContent="";
+  }
+  $("cancelBtn").onclick = clearForm;
+  $("saveBtn").onclick = async function(){
+    var path=$("path").value.trim().replace(/^["']|["']$/g,"");
+    var name=$("name").value.trim() || baseName(path);
+    if(!name && !path){ $("formMsg").textContent="Add a path or a name."; return; }
+    var r = {
+      id: editing || (Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
+      name:name, path:path, project:$("project").value.trim(), type:$("type").value.trim(),
+      ver:$("ver").value.trim(), note:$("note").value.trim(), date:$("date").value||today(),
+      ts: editing ? (rows.find(function(x){return x.id===editing})||{}).ts||Date.now() : Date.now()
+    };
+    $("saveBtn").disabled=true;
+    try{ await saveRow(r); toast(editing?"Updated":"Saved"); var keepProj=$("project").value; clearForm(); $("project").value=keepProj; }
+    catch(e){ $("formMsg").textContent="Could not save ("+(e&&e.code||"error")+"). Try again."; }
+    $("saveBtn").disabled=false;
+  };
+
+  function startEdit(r){
+    editing=r.id;
+    $("path").value=r.path||""; $("name").value=r.name||""; $("project").value=r.project||"";
+    $("type").value=r.type||""; $("ver").value=r.ver||""; $("note").value=r.note||""; $("date").value=r.date||today();
+    ["name","type"].forEach(function(k){$(k).dataset.touched="1"});
+    $("saveBtn").textContent="Update entry"; $("cancelBtn").style.display="inline-block";
+    $("formCard").scrollIntoView({behavior:"smooth"});
+  }
+
+  // ---- list ----
+  function matches(r,q){
+    if(activeProj && (r.project||"")!==activeProj) return false;
+    if(!q) return true;
+    var s=[r.name,r.path,r.project,r.type,r.ver,r.note,r.date].join(" ").toLowerCase();
+    return q.toLowerCase().split(/\s+/).every(function(w){return s.indexOf(w)>=0});
+  }
+  function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+
+  function render(){
+    // project chips + datalist
+    var projs = {}; rows.forEach(function(r){ if(r.project) projs[r.project]=(projs[r.project]||0)+1 });
+    var names = Object.keys(projs).sort();
+    var dl=$("projList"); dl.textContent=""; names.forEach(function(p){var o=document.createElement("option");o.value=p;dl.appendChild(o)});
+    var ch=$("chips"); ch.textContent="";
+    var all=el("span","chip"+(activeProj===""?" on":""),"All ("+rows.length+")"); all.onclick=function(){activeProj="";render()}; ch.appendChild(all);
+    names.forEach(function(p){var c=el("span","chip"+(activeProj===p?" on":""),p+" ("+projs[p]+")"); c.onclick=function(){activeProj=p;render()}; ch.appendChild(c)});
+
+    var q=$("q").value.trim();
+    var shown = rows.filter(function(r){return matches(r,q)});
+    shown.sort(function(a,b){ return (b.date||"").localeCompare(a.date||"") || (b.ts||0)-(a.ts||0) });
+    $("count").textContent = shown.length+" of "+rows.length+" entries";
+    var list=$("list"); list.textContent="";
+    if(!shown.length){ list.appendChild(el("div","empty", rows.length?"Nothing matches your search.":"No entries yet. Add your first file above.")); return; }
+    shown.forEach(function(r){
+      var it=el("div","item");
+      it.appendChild(el("div","nm",r.name||"(no name)"));
+      if(r.path){ var p=el("div","pth",r.path); p.title="Tap to copy path"; p.onclick=function(){copy(r.path)}; it.appendChild(p); }
+      var m=el("div","meta");
+      if(r.project) m.appendChild(el("span","tag",r.project));
+      m.appendChild(document.createTextNode([r.type,r.ver,r.date].filter(Boolean).join(" · ")));
+      it.appendChild(m);
+      if(r.note) it.appendChild(el("div","note",r.note));
+      var a=el("div","acts");
+      var eb=el("button","sm","Edit"); eb.onclick=function(){startEdit(r)};
+      var db_=el("button","sm","Delete");
+      db_.onclick=function(){
+        if(db_.dataset.armed){ delRow(r.id).catch(function(){toast("Could not delete")}); }
+        else { db_.dataset.armed="1"; db_.textContent="Tap again to delete"; setTimeout(function(){delete db_.dataset.armed;db_.textContent="Delete"},2500); }
+      };
+      a.appendChild(eb); a.appendChild(db_); it.appendChild(a);
+      list.appendChild(it);
+    });
+  }
+  $("q").addEventListener("input",render);
+
+  $("csvBtn").onclick=function(){
+    function c(v){v=(v==null?"":String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+    var head=["Date","Name","Path","Project","Type","Version","Note"];
+    var lines=[head.join(",")];
+    rows.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"")}).forEach(function(r){
+      lines.push([r.date,r.name,r.path,r.project,r.type,r.ver,r.note].map(c).join(","));
+    });
+    copy(lines.join("\n"));
+  };
+
+  init();
+})();
+</script>
+</body>
+</html>

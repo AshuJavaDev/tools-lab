@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page Pacer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a quiet slate frame around one bright reading window; controls sit low, within thumb reach. */
+:root{
+  --bg:#e9edf1; --panel:#ffffff; --ink:#15202b; --muted:#5b6876; --line:#cfd6de;
+  --accent:#2952c4; --accent-ink:#ffffff; --mark:#b97900; --mark-bg:#fff3d6; --good:#1f7a4d;
+  --hl:#ffd400;
+  --font:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11161c; --panel:#1a2129; --ink:#e6ebf0; --muted:#97a3b0; --line:#2c3642;
+    --accent:#7d9cff; --accent-ink:#0d1220; --mark:#f0b43c; --mark-bg:#3a2e12; --good:#56c48b;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11161c; --panel:#1a2129; --ink:#e6ebf0; --muted:#97a3b0; --line:#2c3642;
+  --accent:#7d9cff; --accent-ink:#0d1220; --mark:#f0b43c; --mark-bg:#3a2e12; --good:#56c48b;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 14px;min-height:40px}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+button.ghost{background:transparent}
+.hidden{display:none !important}
+.num{font-variant-numeric:tabular-nums}
+
+/* Home */
+#home{max-width:760px;margin:0 auto;padding:28px 16px 48px;display:flex;flex-direction:column;gap:22px}
+#home h1{margin:0;font-size:30px;text-wrap:balance}
+#home .sub{margin:4px 0 0;color:var(--muted);max-width:60ch}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:22px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--panel)}
+.drop.over{border-color:var(--accent)}
+.drop p{margin:0;color:var(--muted);flex:1 1 240px}
+.list{display:flex;flex-direction:column;gap:10px}
+.list h2,.how h2,.backup h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 4px}
+.item{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.item .info{flex:1 1 260px;min-width:0}
+.item .name{font-weight:700;overflow-wrap:anywhere}
+.item .meta{color:var(--muted);font-size:14px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.chip{display:inline-block;font-size:13px;padding:1px 8px;border-radius:99px;background:var(--mark-bg);color:var(--mark);font-weight:700}
+.chip.hl{background:#fff4b0;color:#6b5600}
+.how,.backup{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.backup p{margin:4px 0 10px}
+.nudge{background:var(--mark-bg);color:var(--ink);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.how ol{margin:6px 0 10px;padding-left:20px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
+kbd{font-family:inherit;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px;background:var(--bg)}
+.note{font-size:14px;color:var(--muted)}
+
+/* Reader */
+#reader{height:100%;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.top .title{font-weight:700;flex:1 1 160px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat{font-size:14px;color:var(--muted);white-space:nowrap}
+.stat b{color:var(--ink)}
+.timebar{height:5px;background:var(--line)}
+.timebar i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s linear}
+.timebar.paused i{background:var(--muted)}
+.timebar.hold i{background:#c9a600}
+#stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:10px 16px;touch-action:pan-y}
+#stage.hlmode{touch-action:none}
+#view{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18);border-radius:4px;display:block;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#stage.hlmode #view{cursor:text;outline:3px solid var(--hl);outline-offset:3px}
+#view.enter{animation:enter .22s ease-out}
+@keyframes enter{from{opacity:.25;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){#view.enter{animation:none}.timebar i{transition:none}}
+body.night #view{filter:invert(1) hue-rotate(180deg)}
+.dots{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
+.dots span{width:8px;height:22px;border-radius:4px;background:var(--line)}
+.dots span.on{background:var(--accent)}
+.markflag{position:absolute;top:14px;left:20px;background:var(--mark-bg);color:var(--mark);font-weight:700;padding:3px 10px;border-radius:99px;font-size:14px}
+.pausehint{position:absolute;inset:auto 0 18px 0;text-align:center;pointer-events:none}
+.pausehint span{display:inline-block;max-width:92%;background:var(--panel);border:1px solid var(--line);padding:6px 14px;border-radius:99px;font-size:14px;color:var(--muted)}
+.pausehint.hl span{background:#fff4b0;color:#4d3e00;border-color:var(--hl);font-weight:700}
+.pausehint.hold span{background:var(--hl);color:#2a2200}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:10px 12px;background:var(--panel);border-top:1px solid var(--line)}
+.controls .grp{display:flex;gap:6px;align-items:center}
+#playBtn{min-width:96px}
+#markBtn.on{background:var(--mark-bg);color:var(--mark);border-color:var(--mark);font-weight:700}
+#hlBtn.on{background:var(--hl);color:#3a2f00;border-color:#c9a600;font-weight:700}
+.stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stepper button{border:0;border-radius:0;min-width:40px;padding:8px 10px}
+.stepper span{padding:0 8px;min-width:70px;text-align:center}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:8px 12px}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:99px;font-size:14px;z-index:20;max-width:90vw;text-align:center}
+
+/* Panels */
+.overlay{position:fixed;inset:0;background:rgba(10,15,22,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.card{background:var(--panel);color:var(--ink);border-radius:14px;padding:20px;max-width:480px;width:100%;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow:auto}
+.card h3{margin:0;font-size:21px;text-wrap:balance}
+.card p{margin:0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.row label{flex:1 1 160px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.big{font-size:28px;font-weight:700}
+.hist{font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.hllist{display:flex;flex-direction:column;gap:8px;font-size:15px}
+.hllist div{border-left:4px solid var(--hl);padding:2px 0 2px 10px}
+.hllist mark{background:#fff4b0;color:#2a2200;padding:0 2px;border-radius:3px}
+.hllist .pg{color:var(--muted);font-size:13px}
+textarea{width:100%;min-height:140px;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input[type=number]{width:90px;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+select{padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+@media (max-width:520px){
+  .top{gap:6px 10px}.stat.opt{display:none}
+  .controls{gap:6px;padding:8px 6px}.controls button{padding:8px 10px}
+  .stepper span{min-width:52px;padding:0 4px}
+  #playBtn{min-width:84px}
+}
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<main id="home">
+  <header>
+    <h1>Page Pacer</h1>
+    <p class="sub">Read a PDF one half-page at a time, on a timer. It moves to the next part by itself, so you keep a steady speed through every reading. Turn the 🖍 pen on and highlight words while the timer keeps running.</p>
+  </header>
+
+  <div class="drop" id="drop">
+    <button class="primary" id="openBtn">Open a PDF</button>
+    <input type="file" id="fileIn" accept="application/pdf,.pdf" class="hidden">
+    <p>Or drop a PDF here. The file stays in this browser and is never uploaded.</p>
+  </div>
+
+  <section class="list" id="listSec">
+    <h2>Your PDFs</h2>
+    <div id="list"></div>
+  </section>
+
+  <section class="backup" id="backupSec">
+    <h2>Backup of your progress</h2>
+    <div class="nudge hidden" id="nudge"></div>
+    <p class="note" id="bkInfo"></p>
+    <div class="btns">
+      <button class="primary" id="saveBkBtn">💾 Save progress file</button>
+      <button id="loadBkBtn">📂 Load progress file</button>
+      <input type="file" id="bkIn" accept=".json,application/json" class="hidden">
+    </div>
+    <p class="note">The file keeps your place, ★ marks, 🖍 highlights and reading times for every PDF (not the PDFs themselves). Keep it in Google Drive or WhatsApp to yourself. Load it on any phone or laptop, or if this browser ever loses your progress.</p>
+  </section>
+
+  <section class="how">
+    <h2>How it works</h2>
+    <ol>
+      <li>Each page is cut into 2 parts (you can choose 1–4). The cut falls in a gap between lines, so no line is split.</li>
+      <li>Empty page margins are cropped, so the text shows bigger.</li>
+      <li>Set the seconds per part. When time runs out, the next part opens.</li>
+      <li>Press 🖍 to turn the pen on. It stays on while you read. Tap a word, or drag across words; tap again to remove. The timer stops only while your finger (or mouse) is pressed on a word. If the part was about to change, you get 3 more seconds after you lift your finger. Press 🖍 again to put the pen away.</li>
+      <li>⚙ More → 📄 Download highlighted PDF gives a copy with real highlights. Open it in Revision Cards and your highlighted lines become flashcards.</li>
+      <li>Mark hard pages with ★. After a full reading, review only the marked pages.</li>
+      <li>Each full reading is saved (Reading 1, 2, 3…) with the time it took.</li>
+    </ol>
+    <div class="keys">
+      <kbd>Space</kbd><span>Pause / play (or tap the page when the pen is off)</span>
+      <kbd>→</kbd><span>Next part (swipe right on a phone, pen off)</span>
+      <kbd>←</kbd><span>Previous part (swipe left)</span>
+      <kbd>↑</kbd><span>Mark / unmark this page ★ (swipe up)</span>
+      <kbd>H</kbd><span>Pen on / off 🖍</span>
+      <kbd>+</kbd> <span>5 seconds more per part (<kbd>−</kbd> for less)</span>
+      <kbd>N</kbd><span>Night mode</span>
+      <kbd>F</kbd><span>Full screen</span>
+    </div>
+  </section>
+  <p class="note">Highlighting works on text PDFs. Scanned pages can be read and marked ★, but their words can't be highlighted. · Page Pacer v1.4</p>
+</main>
+
+<!-- READER -->
+<section id="reader" class="hidden">
+  <div class="top">
+    <button class="ghost" id="homeBtn" aria-label="Back to home">← Home</button>
+    <div class="title" id="rTitle"></div>
+    <div class="stat num">Page <b id="sPage">1</b>/<span id="sPages">1</span> · Part <b id="sPart">1</b>/<span id="sParts">2</span></div>
+    <div class="stat num" id="sMode">Reading 1</div>
+    <div class="stat num opt">Time <b id="sTime">0:00</b></div>
+    <div class="stat num opt">Done in ~<b id="sLeft">–</b></div>
+  </div>
+  <div class="timebar" id="timebar"><i id="timefill"></i></div>
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div class="dots" id="dots"></div>
+    <div class="markflag hidden" id="markFlag">★ Marked</div>
+    <div class="pausehint" id="pauseHint"><span id="pauseTxt">Paused · press Space or tap the page to start</span></div>
+  </div>
+  <div class="controls">
+    <div class="grp">
+      <button id="backBtn" aria-label="Previous part">←</button>
+      <button class="primary" id="playBtn">▶ Play</button>
+      <button id="nextBtn" aria-label="Next part">→</button>
+      <button id="markBtn">★ Mark</button>
+      <button id="hlBtn" aria-pressed="false">🖍 Pen</button>
+    </div>
+    <div class="grp">
+      <div class="stepper" aria-label="Seconds per part">
+        <button id="minusBtn" aria-label="Less time">−</button>
+        <span class="num" id="secLbl">30 s</span>
+        <button id="plusBtn" aria-label="More time">+</button>
+      </div>
+      <div class="seg" id="partsSeg" aria-label="Parts per page">
+        <button data-p="1">1</button><button data-p="2">2</button><button data-p="3">3</button><button data-p="4">4</button>
+      </div>
+      <button id="moreBtn">⚙ More</button>
+    </div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<div class="overlay hidden" id="setOv">
+  <div class="card" role="dialog" aria-labelledby="setH">
+    <h3 id="setH">Settings</h3>
+    <div class="row"><label for="manualChk">Manual mode (no timer, move with → only)</label><input type="checkbox" id="manualChk"></div>
+    <div class="row"><label for="cropChk">Crop empty margins</label><input type="checkbox" id="cropChk"></div>
+    <div class="row"><label for="nightChk">Night mode (dark page)</label><input type="checkbox" id="nightChk"></div>
+    <div class="row"><label for="breakSel">Break reminder</label>
+      <select id="breakSel"><option value="0">Off</option><option value="20">Every 20 min</option><option value="30">Every 30 min</option><option value="45">Every 45 min</option><option value="60">Every 60 min</option></select></div>
+    <div class="row"><label for="gotoIn">Go to page</label><span class="btns"><input type="number" id="gotoIn" min="1"><button id="gotoBtn">Go</button></span></div>
+    <div class="btns">
+      <button id="hlListBtn">🖍 My highlights</button>
+      <button id="hlPdfBtn">📄 Download highlighted PDF</button>
+      <button id="reviewBtn">Review marked pages</button>
+      <button id="readAllBtn">Back to full reading</button>
+      <button id="fsBtn">Full screen</button>
+    </div>
+    <div class="btns">
+      <button id="saveBkBtn2">💾 Save progress file</button>
+    </div>
+    <div class="hist" id="histBox"></div>
+    <div class="btns"><button class="primary" id="setClose">Done</button></div>
+  </div>
+</div>
+
+<!-- MESSAGE (finish / break / reopen) -->
+<div class="overlay hidden" id="msgOv">
+  <div class="card" role="dialog" aria-labelledby="msgH">
+    <h3 id="msgH"></h3>
+    <div id="msgBody"></div>
+    <div class="btns" id="msgBtns"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const $ = id => document.getElementById(id);
+const GRACE_MS = 3000;   // if the part was about to change when you lift the pen, you get at least this much time
+
+/* ---------- storage (all wrapped: storage may be missing) ---------- */
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let S = Object.assign({parts:2, secs:30, crop:true, night:false, breakMin:30, manual:false}, LS.get("pp_settings", {}));
+let META = LS.get("pp_meta", {});
+const saveS = () => LS.set("pp_settings", S);
+const saveMeta = () => LS.set("pp_meta", META);
+// ask the browser to keep our data (lowers the chance of it being cleared on a phone)
+try{ if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+
+let dbP = null;
+function db(){
+  if (dbP) return dbP;
+  dbP = new Promise((res, rej) => {
+    try{
+      const r = indexedDB.open("pagepacer", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("files", {keyPath:"key"});
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    }catch(e){ rej(e); }
+  });
+  return dbP;
+}
+async function idb(mode, fn){
+  try{
+    const d = await db();
+    return await new Promise((res, rej) => {
+      const tx = d.transaction("files", mode); const st = tx.objectStore("files");
+      const r = fn(st); tx.oncomplete = () => res(r && r.result); tx.onerror = () => rej(tx.error);
+    });
+  }catch(e){ return null; }
+}
+const putFile = rec => idb("readwrite", st => st.put(rec));
+const getFile = key => idb("readonly", st => st.get(key));
+const delFile = key => idb("readwrite", st => st.delete(key));
+
+/* ---------- state ---------- */
+let doc = null, key = null, M = null;        // pdf doc, file key, meta record
+let mode = "read", seq = [], idx = 0, part = 0;
+let paused = true, remain = 0, breakAcc = 0, openOv = false;
+let cache = new Map(), drawToken = 0, lastSave = 0, revMs = 0, lastTouch = 0;
+let hlMode = false, cur = null, drag = null;   // cur = what is on screen now (for tap → word)
+let holding = false, hintUntil = 0, hintT = null; // holding = finger/mouse pressed on a word (part timer stops)
+const fmt = ms => { const s = Math.max(0, Math.round(ms/1000)), h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}` : `${m}:${String(x).padStart(2,"0")}`; };
+const fmtMin = ms => { const m = Math.round(ms/60000); return m < 60 ? `${m} min` : `${Math.floor(m/60)} h ${m%60} min`; };
+const hlCount = m => Object.values((m && m.hl) || {}).reduce((a, l) => a + l.length, 0);
+function toast(t){ document.querySelectorAll(".toast").forEach(x => x.remove()); const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2600); }
+
+/* ---------- home ---------- */
+function renderHome(){
+  const items = Object.entries(META).sort((a,b) => (b[1].last||0) - (a[1].last||0));
+  $("listSec").classList.toggle("hidden", !items.length);
+  const L = $("list"); L.innerHTML = "";
+  for (const [k, m] of items){
+    const div = document.createElement("div"); div.className = "item";
+    const seenN = (m.seen||[]).length;
+    const pct = m.pages ? Math.round(seenN / m.pages * 100) : 0;
+    const rd = (m.readings||[]).length, lr = rd ? m.readings[rd-1] : null;
+    const lastR = lr ? ` · Reading ${rd} took ${fmtMin(lr.ms)}${lr.read && lr.read < lr.pages ? " (partial)" : ""}` : "";
+    const hc = hlCount(m);
+    div.innerHTML = `<div class="info"><div class="name"></div>
+      <div class="meta num">Reading ${rd+1} · at page ${m.page||1} · ${seenN} of ${m.pages||"?"} pages read${lastR}
+      ${(m.marked||[]).length ? ` <span class="chip">★ ${m.marked.length} marked</span>` : ""}${hc ? ` <span class="chip hl">🖍 ${hc} highlighted</span>` : ""}</div>
+      <div class="bar"><i style="width:${pct}%"></i></div></div>`;
+    div.querySelector(".name").textContent = m.name;
+    const c = document.createElement("button"); c.className = "primary"; c.textContent = "Continue";
+    c.onclick = () => resume(k, "read");
+    div.appendChild(c);
+    if ((m.marked||[]).length){ const r = document.createElement("button"); r.textContent = "Review ★"; r.onclick = () => resume(k, "review"); div.appendChild(r); }
+    const x = document.createElement("button"); x.className = "ghost"; x.textContent = "Remove"; x.setAttribute("aria-label", "Remove " + m.name);
+    x.onclick = () => showMsg("Remove this PDF?", `<p>${esc(m.name)} and its reading history${hc ? " and highlights" : ""} will be removed from this browser.</p>`,
+      [["Remove", async () => { delete META[k]; saveMeta(); await delFile(k); hideMsg(); renderHome(); }, true], ["Cancel", hideMsg]]);
+    div.appendChild(x);
+    L.appendChild(div);
+  }
+  renderBackupInfo();
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+$("openBtn").onclick = () => $("fileIn").click();
+$("fileIn").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) openFile(f); };
+const drop = $("drop");
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); const f = e.dataTransfer.files[0]; if (f) openFile(f); };
+
+let pendingKey = null;
+async function openFile(file, wantMode){
+  if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)){ showMsg("That isn't a PDF", "<p>Choose a file that ends in .pdf.</p>", [["OK", hideMsg, true]]); return; }
+  const k = file.name + "|" + file.size;
+  if (pendingKey && pendingKey !== k){ showMsg("Different file", "<p>This is not the same PDF. Opening it as a new one.</p>", [["OK", hideMsg, true]]); }
+  pendingKey = null;
+  await putFile({key:k, name:file.name, blob:file, added:Date.now()});
+  await trimFiles(k);
+  start(k, file, wantMode || "read");
+}
+async function trimFiles(keep){
+  const keys = Object.entries(META).sort((a,b)=>(b[1].last||0)-(a[1].last||0)).map(e=>e[0]).filter(k=>k!==keep);
+  for (const k of keys.slice(14)) await delFile(k); // keep the 15 most recent files stored
+}
+async function resume(k, wantMode){
+  const rec = await getFile(k);
+  if (rec && rec.blob){ start(k, rec.blob, wantMode); return; }
+  pendingKey = k;
+  showMsg("Open the PDF once more", `<p>This browser does not have the file itself (only your progress). Choose <b>${esc(META[k].name)}</b> again and you will continue from page ${META[k].page||1}, with your marks and highlights.</p>`,
+    [["Choose file", () => { hideMsg(); $("fileIn").click(); }, true], ["Cancel", () => { pendingKey = null; hideMsg(); }]]);
+}
+
+/* ---------- backup: save / load one progress file ---------- */
+function renderBackupInfo(){
+  const last = LS.get("pp_lastBackup", 0), any = Object.keys(META).length;
+  $("backupSec").classList.toggle("hidden", !any && !last);
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+  $("bkInfo").textContent = last ? `Last saved: ${days === 0 ? "today" : days === 1 ? "yesterday" : days + " days ago"} (${new Date(last).toLocaleDateString()}).` : "No progress file saved yet.";
+  const nudge = any && (!last || days >= 7);
+  $("nudge").classList.toggle("hidden", !nudge);
+  if (nudge) $("nudge").textContent = last ? `⚠️ Your last backup is ${days} days old. Save a fresh progress file so you never lose your place or highlights.` : "⚠️ Save a progress file once, so a browser reset or a new phone never loses your place and highlights.";
+}
+let DL = null;   // the claude.ai page saves files through its "downloads" capability; a downloaded copy uses a normal link
+try{ if (window.claude && window.claude.use) window.claude.use("downloads").then(d => { DL = d; }).catch(() => {}); }catch(e){}
+async function saveBackup(){
+  const data = { app: "page-pacer", version: 2, saved: Date.now(), settings: S, meta: META };
+  const d = new Date(), stamp = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  const name = `page-pacer-progress-${stamp}.json`, text = JSON.stringify(data);
+  const ok = () => { LS.set("pp_lastBackup", Date.now()); renderBackupInfo(); toast("Progress file saved — check your Downloads"); };
+  if (DL){
+    try{ await DL.save({filename: name, data: text}); ok(); }
+    catch(e){ toast(e && e.code === "declined" ? "Not saved" : "Could not save the file here"); }
+    return;
+  }
+  const blob = new Blob([text], {type: "application/json"});
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+  ok();
+}
+$("saveBkBtn").onclick = saveBackup;
+$("saveBkBtn2").onclick = saveBackup;
+$("loadBkBtn").onclick = () => $("bkIn").click();
+$("bkIn").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  let data;
+  try{ data = JSON.parse(await f.text()); }catch(err){ data = null; }
+  if (!data || data.app !== "page-pacer" || typeof data.meta !== "object"){
+    showMsg("Not a Page Pacer file", "<p>Choose the file that Page Pacer saved, named like <b>page-pacer-progress-….json</b>.</p>", [["OK", hideMsg, true]]); return;
+  }
+  let added = 0, updated = 0, kept = 0;
+  for (const [k, m] of Object.entries(data.meta)){
+    if (!META[k]){ META[k] = m; added++; }
+    else if ((m.last||0) >= (META[k].last||0)){ META[k] = m; updated++; }
+    else kept++;
+  }
+  if (data.settings) S = Object.assign(S, data.settings);
+  saveMeta(); saveS(); renderHome();
+  showMsg("Progress loaded", `<p class="num">${added} PDF${added===1?"":"s"} added, ${updated} updated${kept ? `, ${kept} kept as they were (this browser had newer progress)` : ""}.</p>
+    <p class="note">Your place, ★ marks and highlights are back. When you press Continue, choose the PDF file once if this browser asks for it.</p>`, [["OK", hideMsg, true]]);
+};
+
+/* ---------- open reader ---------- */
+async function start(k, blob, wantMode){
+  try{
+    const buf = await blob.arrayBuffer();
+    // fontExtraProperties: keeps each font's letter widths, used for exact word boxes
+    doc = await pdfjsLib.getDocument({data: buf, fontExtraProperties: true}).promise;
+  }catch(e){
+    showMsg("Could not open this PDF", "<p>The file may be damaged or password-protected. Try another copy.</p>", [["OK", hideMsg, true]]); return;
+  }
+  key = k;
+  M = META[k] || (META[k] = {name: blob.name || k.split("|")[0], page:1, part:0, marked:[], readings:[], curMs:0});
+  M.pages = doc.numPages; M.last = Date.now(); if (!M.name) M.name = k.split("|")[0];
+  M.marked = M.marked || []; M.readings = M.readings || []; M.hl = M.hl || {};
+  if (M.page > M.pages) M.page = 1;
+  saveMeta();
+  cache.clear(); textCache.clear(); fontTables.clear();
+  $("home").classList.add("hidden"); $("reader").classList.remove("hidden");
+  $("rTitle").textContent = M.name;
+  setMode(wantMode === "review" && M.marked.length ? "review" : "read", true);
+  paused = true; remain = S.secs * 1000; setHl(false);
+  syncControls(); show(true);
+}
+function setMode(m, keepPos){
+  mode = m;
+  revMs = 0;
+  if (m === "review"){ seq = [...M.marked].sort((a,b)=>a-b); idx = 0; part = 0; }
+  else { seq = Array.from({length: M.pages}, (_, i) => i + 1); idx = keepPos ? (M.page - 1) : 0; part = keepPos ? Math.min(M.part||0, S.parts-1) : 0; }
+}
+function goHome(){
+  paused = true; setHl(false); savePos(true);
+  $("reader").classList.add("hidden"); $("home").classList.remove("hidden");
+  if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  doc = null; cur = null; renderHome();
+}
+$("homeBtn").onclick = goHome;
+
+/* ---------- words on a page (for highlighting) ----------
+   PDF.js gives text pieces with their position and total width. Each piece is split into
+   words. Where each word starts and ends inside its piece comes from the real letter widths
+   of the PDF's own font (its widths table + letter map). If a font gives no usable widths,
+   the letters are measured with a similar screen font instead. The word order never changes,
+   so a highlight is still saved as the word's number on that page (same numbers as v1.3). */
+const fontTables = new Map();
+function fontTable(page, fontName){
+  if (fontTables.has(fontName)) return fontTables.get(fontName);
+  let tab = null;
+  try{
+    const f = page.commonObjs.has(fontName) ? page.commonObjs.get(fontName) : null;
+    const map = f && f.toUnicode && f.toUnicode._map, wd = f && f.widths;
+    const fm = (f && f.fontMatrix) || [0.001];
+    if (map && wd && !f.isType3Font && !f.vertical && Math.abs(fm[0] - 0.001) < 1e-6){
+      tab = new Map(); let maxLen = 1;
+      const add = (code, u) => {
+        if (typeof u !== "string" || !u) return;
+        let w = wd[code]; if (w == null) w = f.defaultWidth || null;
+        if (w == null || !(w >= 0)) return;
+        u = u.normalize ? u.normalize("NFKC") : u;
+        if (!tab.has(u)){ tab.set(u, w); maxLen = Math.max(maxLen, Array.from(u).length); }
+      };
+      if (Array.isArray(map)) map.forEach((u, code) => add(code, u));
+      else for (const code in map) add(+code, map[code]);
+      tab.maxLen = Math.min(4, maxLen);
+      if (tab.size < 3) tab = null;
+    }
+  }catch(e){ tab = null; }
+  fontTables.set(fontName, tab);
+  return tab;
+}
+let measureCtx = null;
+function measuredWidths(chars, style){
+  if (!measureCtx) measureCtx = document.createElement("canvas").getContext("2d");
+  measureCtx.font = `100px ${(style && style.fontFamily) || "sans-serif"}`;
+  return chars.map(c => measureCtx.measureText(c).width);
+}
+// one width per letter of the piece, from the PDF's font if possible
+function letterWidths(it, page, style){
+  const chars = Array.from(it.str);
+  const tab = fontTable(page, it.fontName);
+  if (tab){
+    const ws = new Array(chars.length).fill(null);
+    let known = 0, sum = 0;
+    for (let i = 0; i < chars.length; ){
+      let took = 0;
+      for (let L = Math.min(tab.maxLen, chars.length - i); L >= 1; L--){
+        const k = chars.slice(i, i + L).join("");
+        if (tab.has(k)){ const w = tab.get(k) / L; for (let j = 0; j < L; j++) ws[i + j] = w; took = L; known += L; sum += w * L; break; }
+      }
+      i += took || 1;
+    }
+    if (known >= Math.max(1, chars.length * 0.7)){
+      const avg = sum / known;
+      for (let i = 0; i < ws.length; i++) if (ws[i] == null) ws[i] = /\s/.test(chars[i]) ? avg * 0.5 : avg;
+      // the PDF's own letter spacing / word spacing: share what is left over evenly per letter
+      const fs = Math.hypot(it.transform[0], it.transform[1]) || 1;
+      const expect = ws.reduce((a, b) => a + b, 0) / 1000 * fs, real = it.width || 0;
+      if (real > 0 && expect > 0 && real / expect > 0.6 && real / expect < 1.6){
+        const extra = (real - expect) / chars.length / fs * 1000;
+        return {chars, ws: ws.map(w => Math.max(0, w + extra))};
+      }
+    }
+  }
+  return {chars, ws: measuredWidths(chars, style)};
+}
+// page given → exact word positions; no page → words only (for the highlights list)
+function splitWords(items, page, styles){
+  const out = [];
+  for (const it of items){
+    const s = it.str || ""; if (!s.trim()) continue;
+    const {chars, ws} = page ? letterWidths(it, page, styles && styles[it.fontName]) : {chars: Array.from(s), ws: null};
+    const pos = []; let u = 0; chars.forEach((c, i) => { pos[u] = i; u += c.length; }); pos[u] = chars.length;
+    const cum = [0]; if (ws) for (let i = 0; i < ws.length; i++) cum.push(cum[i] + ws[i]);
+    const total = ws ? cum[cum.length - 1] : 0;
+    const re = /\S+/g; let m;
+    while ((m = re.exec(s))){
+      const ia = pos[m.index], ib = pos[m.index + m[0].length];
+      const a = total > 0 ? cum[ia] / total : ia / chars.length;
+      const b = total > 0 ? cum[ib] / total : ib / chars.length;
+      out.push({it, a, b, str: m[0]});
+    }
+  }
+  return out;
+}
+const textCache = new Map();
+async function pageText(n){          // words only (no positions) — for the highlights list
+  if (textCache.has(n)) return textCache.get(n);
+  const p = doc.getPage(n).then(pg => pg.getTextContent()).then(tc => splitWords(tc.items).map(w => w.str)).catch(() => []);
+  textCache.set(n, p); return p;
+}
+
+/* ---------- page rendering: crop margins, find line gaps ---------- */
+async function getPage(n){
+  if (cache.has(n)) return cache.get(n);
+  const p = (async () => {
+    const page = await doc.getPage(n);
+    const vp1 = page.getViewport({scale:1});
+    const stageW = Math.max(320, $("stage").clientWidth);
+    const scale = Math.min(4, Math.max(1.2, stageW * (window.devicePixelRatio||1) * 1.4 / vp1.width));
+    const vp = page.getViewport({scale});
+    const c = document.createElement("canvas"); c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+    const ctx = c.getContext("2d", {willReadFrequently:true});
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({canvasContext: ctx, viewport: vp}).promise;
+    // scan for ink: bounding box + ink per row
+    const W = c.width, H = c.height, d = ctx.getImageData(0, 0, W, H).data;
+    const rows = new Uint16Array(H); let x0 = W, x1 = -1, y0 = H, y1 = -1;
+    for (let y = 0; y < H; y++){
+      let cnt = 0, o = y * W * 4;
+      for (let x = 0; x < W; x += 2){
+        const i = o + x * 4, lum = (d[i]*3 + d[i+1]*6 + d[i+2]) / 10;
+        if (lum < 200){ cnt++; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+      }
+      rows[y] = cnt; if (cnt){ if (y < y0) y0 = y; y1 = y; }
+    }
+    let src = c, rowInk = rows, ox = 0, oy = 0;
+    if (S.crop && x1 > x0 && y1 > y0){
+      const pad = Math.round(W * 0.025);
+      const cx = Math.max(0, x0 - pad), cy = Math.max(0, y0 - pad);
+      const cw = Math.min(W, x1 + pad) - cx, ch = Math.min(H, y1 + pad) - cy;
+      if (cw < W * 0.97 || ch < H * 0.97){
+        src = document.createElement("canvas"); src.width = cw; src.height = ch;
+        src.getContext("2d").drawImage(c, cx, cy, cw, ch, 0, 0, cw, ch);
+        rowInk = rows.slice(cy, cy + ch); ox = cx; oy = cy;
+      }
+    }
+    // word boxes in the same pixels as the (cropped) page picture (fonts are loaded now, after render)
+    let words = [];
+    try{
+      const tc = await page.getTextContent();
+      words = splitWords(tc.items, page, tc.styles).map(w => {
+        const t = pdfjsLib.Util.transform(vp.transform, w.it.transform);
+        const fh = Math.max(4, Math.hypot(t[2], t[3])), iw = (w.it.width || 0) * vp.scale;
+        const x = t[4] + iw * w.a - ox, xr = t[4] + iw * w.b - ox;
+        return {x, y: t[5] - fh * 0.88 - oy, w: Math.max(2, xr - x), h: fh * 1.12, str: w.str};
+      });
+    }catch(e){ words = []; }
+    return {canvas: src, rowInk, cutsFor: {}, words};
+  })();
+  cache.set(n, p);
+  if (cache.size > 4){ const first = cache.keys().next().value; if (first !== n) cache.delete(first); }
+  return p;
+}
+// cut points between parts, placed at the emptiest row near the ideal split
+function cuts(pg, P){
+  if (pg.cutsFor[P]) return pg.cutsFor[P];
+  const H = pg.canvas.height, r = pg.rowInk, out = [0];
+  for (let k = 1; k < P; k++){
+    const ideal = Math.round(k * H / P), win = Math.round(H / P * 0.18);
+    let best = ideal, bestScore = Infinity;
+    for (let y = Math.max(out[k-1] + 10, ideal - win); y <= Math.min(H - 10, ideal + win); y++){
+      let s = 0; for (let j = -3; j <= 3; j++) s += r[y + j] || 0;
+      const score = s * 1000 + Math.abs(y - ideal);
+      if (score < bestScore){ bestScore = score; best = y; }
+    }
+    out.push(best);
+  }
+  out.push(H);
+  return (pg.cutsFor[P] = out);
+}
+
+async function show(first){
+  const my = ++drawToken, n = seq[idx];
+  updateStats();
+  if (!n) return;
+  if (mode === "read"){ M.seen = M.seen || []; if (!M.seen.includes(n)) M.seen.push(n); } // pages opened in this reading
+  const pg = await getPage(n);
+  if (my !== drawToken) return;
+  const P = S.parts, cs = cuts(pg, P), src = pg.canvas;
+  const margin = Math.round(src.height * 0.006);
+  const sy = Math.max(0, cs[part] - (part ? margin : 0));
+  const ey = Math.min(src.height, cs[part+1] + (part < P-1 ? margin : 0));
+  let maxH = 0; for (let i = 0; i < P; i++) maxH = Math.max(maxH, cs[i+1] - cs[i]);
+  const st = $("stage"), w = st.clientWidth - 40, h = st.clientHeight - 20;
+  const sc = Math.min(w / src.width, h / (maxH + 2*margin));
+  const dpr = window.devicePixelRatio || 1, v = $("view");
+  const dw = Math.round(src.width * sc), dh = Math.round((ey - sy) * sc);
+  v.style.width = dw + "px"; v.style.height = dh + "px";
+  v.width = Math.round(dw * dpr); v.height = Math.round(dh * dpr);
+  cur = {n, pg, sy, ey};
+  paint();
+  v.classList.remove("enter"); void v.offsetWidth; if (!first) v.classList.add("enter");
+  // prefetch the next page
+  if (seq[idx+1]) getPage(seq[idx+1]);
+}
+// draw the visible part + its highlights (also used while dragging, without re-rendering the PDF)
+function paint(preview){
+  if (!cur) return;
+  const v = $("view"), ctx = v.getContext("2d"), {pg, sy, ey, n} = cur, src = pg.canvas;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, v.width, v.height);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(src, 0, sy, src.width, ey - sy, 0, 0, v.width, v.height);
+  const kx = v.width / src.width, ky = v.height / (ey - sy);
+  const set = new Set((M.hl && M.hl[n]) || []);
+  if (preview){ for (const i of preview.idx) preview.add ? set.add(i) : set.delete(i); }
+  if (!set.size) return;
+  ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = "rgba(255,214,0,.55)";
+  for (const i of set){
+    const wd = pg.words[i]; if (!wd) continue;
+    if (wd.y + wd.h < sy || wd.y > ey) continue;
+    ctx.fillRect(wd.x * kx - 1, (wd.y - sy) * ky, wd.w * kx + 2, wd.h * ky);
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/* ---------- pen: stays on while you read; tap a word, or drag across words ----------
+   The part timer keeps running with the pen on. It stops only while a finger / mouse is
+   pressed on a word. When you lift it, if the part was about to change, you get GRACE_MS. */
+function setHl(on){
+  hlMode = on;
+  if (!on){ holding = false; drag = null; }
+  $("stage").classList.toggle("hlmode", on);
+  $("hlBtn").classList.toggle("on", on); $("hlBtn").setAttribute("aria-pressed", String(on));
+  $("hlBtn").textContent = on ? "🖍 Pen on" : "🖍 Pen";
+  if (on) flashHint();
+  syncControls();
+}
+function flashHint(){ hintUntil = Date.now() + 3500; clearTimeout(hintT); hintT = setTimeout(syncControls, 3600); }
+function wordAt(clientX, clientY){
+  if (!cur) return -1;
+  const v = $("view"), r = v.getBoundingClientRect();
+  const px = (clientX - r.left) / r.width * cur.pg.canvas.width;
+  const py = cur.sy + (clientY - r.top) / r.height * (cur.ey - cur.sy);
+  let best = -1, bestD = Infinity;
+  cur.pg.words.forEach((w, i) => {
+    if (w.y + w.h < cur.sy || w.y > cur.ey) return;
+    const dx = px < w.x ? w.x - px : px > w.x + w.w ? px - w.x - w.w : 0;
+    const dy = py < w.y ? w.y - py : py > w.y + w.h ? py - w.y - w.h : 0;
+    const d = dx * dx + dy * dy * 4;              // a miss above/below counts more than left/right
+    if (d < bestD){ bestD = d; best = i; }
+  });
+  if (best < 0) return -1;
+  const w = cur.pg.words[best], lim = w.h * 0.9;
+  return bestD <= lim * lim ? best : -1;
+}
+function rangeIdx(a, b){ const out = []; for (let i = Math.min(a, b); i <= Math.max(a, b); i++) out.push(i); return out; }
+function setHolding(on){
+  if (holding === on) return;
+  holding = on;
+  // lifting the pen: if the part was about to change, give a little more time
+  if (!on && !paused && !S.manual && remain < GRACE_MS) remain = GRACE_MS;
+  syncControls();
+}
+const view = $("view");
+view.addEventListener("pointerdown", e => {
+  if (!hlMode || !cur) return;
+  e.preventDefault();
+  if (!cur.pg.words.length){ toast("This page has no text to highlight (scanned page)"); return; }
+  const i = wordAt(e.clientX, e.clientY); if (i < 0) return;
+  const set = new Set((M.hl && M.hl[cur.n]) || []);
+  drag = {start: i, end: i, add: !set.has(i), idx: [i], n: cur.n};
+  try{ view.setPointerCapture(e.pointerId); }catch(err){}
+  setHolding(true);
+  paint(drag);
+});
+view.addEventListener("pointermove", e => {
+  if (!hlMode || !drag) return;
+  e.preventDefault();
+  const i = wordAt(e.clientX, e.clientY); if (i < 0 || i === drag.end) return;
+  drag.end = i; drag.idx = rangeIdx(drag.start, i);
+  // a drag that starts on a highlighted word removes; on a plain word it adds
+  paint(drag);
+});
+function endDrag(){
+  if (drag && cur && drag.n === cur.n){
+    const n = cur.n, set = new Set(M.hl[n] || []);
+    for (const i of drag.idx) drag.add ? set.add(i) : set.delete(i);
+    if (set.size) M.hl[n] = [...set].sort((a, b) => a - b); else delete M.hl[n];
+    M.last = Date.now(); saveMeta();
+  }
+  drag = null; setHolding(false); paint();
+}
+view.addEventListener("pointerup", e => { if (hlMode) { e.preventDefault(); endDrag(); } });
+view.addEventListener("pointercancel", () => { drag = null; setHolding(false); paint(); });
+view.addEventListener("lostpointercapture", () => { if (drag) endDrag(); });
+// safety: a finger lifted anywhere always restarts the timer
+window.addEventListener("pointerup", () => { if (holding && !drag) setHolding(false); });
+view.addEventListener("contextmenu", e => { if (hlMode) e.preventDefault(); });
+$("hlBtn").onclick = () => setHl(!hlMode);
+
+/* highlights list: each run of highlighted words with its sentence, page by page */
+async function highlightsText(){
+  const pages = Object.keys(M.hl || {}).map(Number).sort((a, b) => a - b), out = [];
+  for (const n of pages){
+    const words = await pageText(n), list = M.hl[n] || [];
+    let i = 0;
+    while (i < list.length){
+      let j = i; while (j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
+      const a = list[i], b = list[j];
+      const phrase = words.slice(a, b + 1).join(" ");
+      let s = a; while (s > 0 && !/[.?!।:]$/.test(words[s - 1]) && a - s < 40) s--;
+      let e = b; while (e < words.length - 1 && !/[.?!।]$/.test(words[e]) && e - b < 40) e++;
+      out.push({page: n, phrase, before: words.slice(s, a).join(" "), after: words.slice(b + 1, e + 1).join(" ")});
+      i = j + 1;
+    }
+  }
+  return out;
+}
+$("hlListBtn").onclick = async () => {
+  closeSet();
+  const list = await highlightsText();
+  if (!list.length){ showMsg("No highlights yet", "<p>Press 🖍 Pen, then tap a word or drag across words to highlight them.</p>", [["OK", hideMsg, true]]); return; }
+  const html = list.map(h => `<div><span class="pg">Page ${h.page}</span><br>${esc(h.before)} <mark>${esc(h.phrase)}</mark> ${esc(h.after)}</div>`).join("");
+  const plain = list.map(h => `p.${h.page} — ${h.phrase} — ${(h.before + " " + h.phrase + " " + h.after).trim()}`).join("\n");
+  showMsg(`🖍 My highlights (${list.length})`, `<div class="hllist">${html}</div><textarea id="hlTxt" class="hidden" aria-label="Highlights as text">${esc(plain)}</textarea>`,
+    [["📄 Highlighted PDF", () => { hideMsg(); exportHighlightedPdf(); }, true], ["📋 Copy all", () => copyText(plain)], ["Close", hideMsg]]);
+};
+/* ---------- highlighted PDF: a copy of the PDF with real highlight marks (for Revision Cards or any PDF app) ---------- */
+let pdfLibP = null;
+function loadPdfLib(){
+  if (window.PDFLib) return Promise.resolve(window.PDFLib);
+  if (!pdfLibP) pdfLibP = new Promise((res, rej) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+    sc.onload = () => window.PDFLib ? res(window.PDFLib) : rej(new Error("pdf-lib missing"));
+    sc.onerror = () => { pdfLibP = null; rej(new Error("Could not load — check the internet")); };
+    document.head.appendChild(sc);
+  });
+  return pdfLibP;
+}
+async function exportHighlightedPdf(){
+  if (!hlCount(M)){ toast("No highlights yet — press 🖍 and tap words first"); return; }
+  const rec = await getFile(key);
+  if (!rec || !rec.blob){ toast("Open the PDF again, then try once more"); return; }
+  toast("Making the highlighted PDF…");
+  let L;
+  try{ L = await loadPdfLib(); }catch(e){ toast(e.message); return; }
+  try{
+    const out = await L.PDFDocument.load(await rec.blob.arrayBuffer(), {ignoreEncryption: true});
+    const pages = out.getPages();
+    for (const ns of Object.keys(M.hl)){
+      const n = +ns, list = M.hl[n] || [], pdfPage = pages[n - 1]; if (!pdfPage || !list.length) continue;
+      const pg = await doc.getPage(n);
+      try{ await pg.getOperatorList(); }catch(e){}   // loads the page's fonts, so the letter widths are known
+      const tc = await pg.getTextContent();
+      const words = splitWords(tc.items, pg, tc.styles);
+      // runs of next-door words → one highlight each; one box per line inside the run
+      let i = 0;
+      while (i < list.length){
+        let j = i; while (j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
+        const quads = [], boxes = [];
+        let line = null;
+        for (let k = list[i]; k <= list[j]; k++){
+          const w = words[k]; if (!w) continue;
+          const t = w.it.transform, fs = Math.hypot(t[0], t[1]) || Math.abs(t[3]) || 10, iw = w.it.width || 0;
+          const x1 = t[4] + iw * w.a, x2 = t[4] + iw * w.b, y1 = t[5] - fs * 0.25, y2 = t[5] + fs * 0.9;
+          if (line && Math.abs(line.y1 - y1) < fs * 0.5){ line.x1 = Math.min(line.x1, x1); line.x2 = Math.max(line.x2, x2); }
+          else { line = {x1, x2, y1, y2}; boxes.push(line); }
+        }
+        for (const b of boxes) quads.push(b.x1, b.y2, b.x2, b.y2, b.x1, b.y1, b.x2, b.y1);
+        if (boxes.length){
+          const rect = [Math.min(...boxes.map(b => b.x1)), Math.min(...boxes.map(b => b.y1)), Math.max(...boxes.map(b => b.x2)), Math.max(...boxes.map(b => b.y2))];
+          const annot = out.context.obj({ Type: "Annot", Subtype: "Highlight", Rect: rect, QuadPoints: quads, C: [1, 0.84, 0], CA: 0.5, F: 4,
+            T: L.PDFString.of("Page Pacer"), Contents: L.PDFString.of(words.slice(list[i], list[j] + 1).map(w => w.str).join(" ")) });
+          pdfPage.node.addAnnot(out.context.register(annot));
+        }
+        i = j + 1;
+      }
+    }
+    const bytes = await out.save();
+    const name = (M.name || "notes").replace(/\.pdf$/i, "") + " - highlighted.pdf";
+    if (DL){
+      try{ await DL.save({filename: name, data: new Blob([bytes], {type: "application/pdf"})}); toast("Saved — open it in Revision Cards"); }
+      catch(e){ toast(e && e.code === "declined" ? "Not saved" : "Could not save the file here"); }
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([bytes], {type: "application/pdf"})), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+    toast("Saved — open it in Revision Cards");
+  }catch(e){
+    showMsg("Could not make the highlighted PDF", "<p>This PDF may be locked (password or copy protection). Your highlights are still safe in Page Pacer, and 🖍 My highlights → Copy all still works.</p>", [["OK", hideMsg, true]]);
+  }
+}
+$("hlPdfBtn").onclick = () => { closeSet(); exportHighlightedPdf(); };
+
+function copyText(t){
+  const done = () => toast("Copied — paste it anywhere");
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, () => fallbackCopy(t));
+  else fallbackCopy(t);
+}
+function fallbackCopy(t){
+  const ta = $("hlTxt"); if (!ta) return;
+  ta.classList.remove("hidden"); ta.value = t; ta.focus(); ta.select();
+  let ok = false; try{ ok = document.execCommand("copy"); }catch(e){}
+  toast(ok ? "Copied — paste it anywhere" : "Press and hold the text to copy it");
+}
+
+/* ---------- navigation ---------- */
+function next(){
+  if (drag) endDrag();
+  if (part < S.parts - 1) part++;
+  else if (idx < seq.length - 1){ idx++; part = 0; }
+  else { finish(); return; }
+  remain = S.secs * 1000; savePos(); show();
+}
+function back(){
+  if (drag) endDrag();
+  if (part > 0) part--;
+  else if (idx > 0){ idx--; part = S.parts - 1; }
+  else return;
+  remain = S.secs * 1000; savePos(); show();
+}
+function savePos(force){
+  if (!M) return;
+  if (mode === "read"){ M.page = seq[idx] || 1; M.part = part; }
+  M.last = Date.now();
+  const now = Date.now();
+  if (force || now - lastSave > 3000){ saveMeta(); lastSave = now; }
+}
+function toggleMark(){
+  const n = seq[idx]; if (!n) return;
+  const i = M.marked.indexOf(n);
+  if (i >= 0) M.marked.splice(i, 1); else M.marked.push(n);
+  savePos(true); updateStats();
+}
+// Play / Pause no longer touches the pen: it stays on until you press 🖍 again
+function setPaused(p){ paused = p; if (hlMode && !p) flashHint(); syncControls(); }
+
+function finish(){
+  setPaused(true);
+  if (mode === "read"){
+    const total = M.pages, seen = (M.seen || []).length;
+    if (seen < total){
+      // reached the end without opening every page (e.g. jumped with Go to page)
+      let firstUnread = 1; while (firstUnread <= total && M.seen.includes(firstUnread)) firstUnread++;
+      showMsg("End of the PDF", `<p class="num">You opened ${seen} of ${total} pages in this reading. ${total - seen} page${total-seen>1?"s are":" is"} still unread, starting at page ${firstUnread}.</p>
+        <p class="note">A reading is saved only when every page is covered, so the times you compare stay fair.</p>`,
+        [[`Go to page ${firstUnread}`, () => { hideMsg(); idx = firstUnread - 1; part = 0; remain = S.secs*1000; savePos(true); show(); }, true],
+         ["Save as a reading anyway", () => { hideMsg(); completeReading(); }],
+         ["Home", () => { hideMsg(); goHome(); }]]);
+      return;
+    }
+    completeReading();
+  } else {
+    const mk = M.marked.length;
+    showMsg("Review done", `<p>${mk ? `${mk} page${mk>1?"s are":" is"} still marked ★. Unmark a page with ↑ once you know it.` : "No pages are marked now."}</p>`,
+      [ ...(mk ? [["Review again", () => { hideMsg(); setMode("review"); remain = S.secs*1000; show(); }, true]] : []),
+        ["Back to full reading", () => { hideMsg(); setMode("read", true); remain = S.secs*1000; show(); }, !mk],
+        ["Home", () => { hideMsg(); goHome(); }] ]);
+  }
+}
+
+function completeReading(){
+  const ms = M.curMs || 0, total = M.pages, read = (M.seen || []).length;
+  M.readings.push({ms, date: Date.now(), pages: total, read});
+  // reset for the next reading; idx too, so a later save keeps page 1
+  M.curMs = 0; M.seen = []; M.page = 1; M.part = 0; idx = 0; part = 0; saveMeta();
+  const r = M.readings.length, mk = M.marked.length;
+  const btns = [];
+  if (mk) btns.push([`Review ${mk} marked page${mk>1?"s":""}`, () => { hideMsg(); setMode("review"); remain = S.secs*1000; show(); }, true]);
+  btns.push([`Start Reading ${r+1}`, () => { hideMsg(); setMode("read"); remain = S.secs*1000; show(); }, !mk]);
+  btns.push(["💾 Save progress file", () => saveBackup()]);
+  btns.push(["Home", () => { hideMsg(); goHome(); }]);
+  showMsg(`Reading ${r} done`, `<p class="big num">${read} page${read>1?"s":""} in ${fmt(ms)}</p>
+    <p class="num">About ${fmt(ms / Math.max(1, read))} per page${read < total ? ` · partial: ${read} of ${total} pages` : ""}${mk ? ` · ${mk} page${mk>1?"s":""} marked ★` : ""}.</p>
+    ${r > 1 ? `<p class="num note">Reading ${r-1} took ${fmt(M.readings[r-2].ms)}.</p>` : ""}`, btns);
+}
+
+/* ---------- stats + controls ---------- */
+function updateStats(){
+  if (!M) return;
+  const n = seq[idx] || 0;
+  $("sPage").textContent = n; $("sPages").textContent = M.pages;
+  $("sPart").textContent = part + 1; $("sParts").textContent = S.parts;
+  $("sMode").textContent = mode === "review" ? `Review ★ ${idx+1}/${seq.length}` : `Reading ${M.readings.length + 1}`;
+  const marked = M.marked.includes(n);
+  $("markFlag").classList.toggle("hidden", !marked);
+  $("markBtn").classList.toggle("on", marked);
+  $("markBtn").textContent = marked ? "★ Marked" : "★ Mark";
+  const dots = $("dots"); dots.innerHTML = "";
+  if (S.parts > 1) for (let i = 0; i < S.parts; i++){ const s = document.createElement("span"); if (i === part) s.className = "on"; dots.appendChild(s); }
+  // time left
+  const partsLeft = (seq.length - idx) * S.parts - part - 1;
+  let left;
+  if (!S.manual) left = partsLeft * S.secs * 1000 + remain;
+  else { const done = (idx * S.parts + part); left = done > 2 && M.curMs ? M.curMs / done * (partsLeft + 1) : NaN; }
+  $("sLeft").textContent = isNaN(left) ? "–" : fmtMin(left);
+}
+function syncControls(){
+  $("playBtn").textContent = paused ? "▶ Play" : "❚❚ Pause";
+  // the hint shows when paused; with the pen on and playing, only for a moment (and while a word is pressed)
+  const showHint = paused || (hlMode && (holding || Date.now() < hintUntil));
+  $("pauseHint").classList.toggle("hidden", !showHint);
+  $("pauseHint").classList.toggle("hl", hlMode);
+  $("pauseHint").classList.toggle("hold", hlMode && holding && !paused && !S.manual);
+  $("pauseTxt").textContent = !hlMode ? "Paused · press Space or tap the page to start"
+    : holding && !paused && !S.manual ? "⏸ Timer stopped while you highlight"
+    : paused ? "🖍 Pen on · ▶ Play to read on"
+    : S.manual ? "🖍 Pen on · tap or drag across words"
+    : "🖍 Pen on · timer stops only while you press a word";
+  $("timebar").classList.toggle("paused", paused);
+  $("timebar").classList.toggle("hold", holding && !paused);
+  $("timebar").classList.toggle("hidden", S.manual);
+  $("secLbl").textContent = S.secs + " s";
+  $("minusBtn").disabled = S.manual; $("plusBtn").disabled = S.manual;
+  document.querySelectorAll("#partsSeg button").forEach(b => b.classList.toggle("on", +b.dataset.p === S.parts));
+  document.body.classList.toggle("night", S.night);
+}
+function changeSecs(d){
+  if (S.manual) return;
+  S.secs = Math.max(5, Math.min(600, S.secs + d)); saveS();
+  remain = Math.min(remain, S.secs * 1000) || S.secs * 1000;
+  syncControls(); updateStats();
+}
+function setParts(p){
+  S.parts = p; saveS(); part = 0; remain = S.secs * 1000; syncControls(); savePos(true); show();
+}
+$("playBtn").onclick = () => setPaused(!paused);
+$("nextBtn").onclick = next; $("backBtn").onclick = back;
+$("markBtn").onclick = toggleMark;
+$("minusBtn").onclick = () => changeSecs(-5); $("plusBtn").onclick = () => changeSecs(5);
+document.querySelectorAll("#partsSeg button").forEach(b => b.onclick = () => setParts(+b.dataset.p));
+
+/* settings panel */
+$("moreBtn").onclick = () => {
+  setPaused(true); openOv = true;
+  $("manualChk").checked = S.manual; $("cropChk").checked = S.crop; $("nightChk").checked = S.night;
+  $("breakSel").value = String(S.breakMin); $("gotoIn").max = M.pages; $("gotoIn").value = seq[idx] || 1;
+  $("reviewBtn").disabled = !M.marked.length;
+  $("reviewBtn").textContent = `Review marked pages (${M.marked.length})`;
+  $("hlListBtn").textContent = `🖍 My highlights (${hlCount(M)})`; $("hlPdfBtn").disabled = !hlCount(M);
+  $("readAllBtn").classList.toggle("hidden", mode === "read");
+  const h = M.readings.map((r, i) => `Reading ${i+1}: ${fmt(r.ms)}${r.read && r.read < r.pages ? ` (partial, ${r.read}/${r.pages} pages)` : ""} · ${new Date(r.date).toLocaleDateString()}`);
+  $("histBox").innerHTML = h.length ? "<b>Past readings</b>" + h.map(x => `<span class="num">${x}</span>`).join("") : "No full reading finished yet.";
+  $("setOv").classList.remove("hidden");
+};
+const closeSet = () => { $("setOv").classList.add("hidden"); openOv = false; };
+$("setClose").onclick = closeSet;
+$("manualChk").onchange = e => { S.manual = e.target.checked; saveS(); syncControls(); updateStats(); };
+$("cropChk").onchange = e => { S.crop = e.target.checked; saveS(); cache.clear(); show(true); };
+$("nightChk").onchange = e => { S.night = e.target.checked; saveS(); syncControls(); };
+$("breakSel").onchange = e => { S.breakMin = +e.target.value; breakAcc = 0; saveS(); };
+$("gotoBtn").onclick = () => {
+  const n = Math.round(+$("gotoIn").value); if (!(n >= 1 && n <= M.pages)) return;
+  if (mode !== "read") setMode("read", true);
+  idx = n - 1; part = 0; remain = S.secs * 1000; savePos(true); closeSet(); show();
+};
+$("reviewBtn").onclick = () => { closeSet(); setMode("review"); remain = S.secs*1000; show(); };
+$("readAllBtn").onclick = () => { closeSet(); setMode("read", true); remain = S.secs*1000; show(); };
+$("fsBtn").onclick = () => { closeSet(); toggleFs(); };
+function toggleFs(){
+  try{
+    if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+    else document.documentElement.requestFullscreen().catch(()=>{});
+  }catch(e){}
+}
+
+/* message dialog */
+function showMsg(title, html, btns){
+  openOv = true; $("msgH").textContent = title; $("msgBody").innerHTML = html;
+  const B = $("msgBtns"); B.innerHTML = "";
+  btns.forEach(([t, fn, primary]) => { const b = document.createElement("button"); b.textContent = t; if (primary) b.className = "primary"; b.onclick = fn; B.appendChild(b); });
+  $("msgOv").classList.remove("hidden");
+  const p = B.querySelector(".primary") || B.firstChild; if (p) p.focus();
+}
+function hideMsg(){ $("msgOv").classList.add("hidden"); openOv = false; }
+
+/* ---------- keys + touch ---------- */
+document.addEventListener("keydown", e => {
+  if ($("reader").classList.contains("hidden") || openOv) return;
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+  const k = e.key;
+  if (k === " "){ e.preventDefault(); setPaused(!paused); }
+  else if (k === "ArrowRight"){ e.preventDefault(); next(); }
+  else if (k === "ArrowLeft"){ e.preventDefault(); back(); }
+  else if (k === "ArrowUp"){ e.preventDefault(); toggleMark(); }
+  else if (k === "h" || k === "H"){ setHl(!hlMode); }
+  else if (k === "+" || k === "="){ changeSecs(5); }
+  else if (k === "-" || k === "_"){ changeSecs(-5); }
+  else if (k === "n" || k === "N"){ S.night = !S.night; saveS(); syncControls(); }
+  else if (k === "f" || k === "F"){ toggleFs(); }
+});
+let tx = 0, ty = 0, tt = 0;
+const stage = $("stage");
+stage.addEventListener("touchstart", e => { const t = e.changedTouches[0]; tx = t.clientX; ty = t.clientY; tt = Date.now(); }, {passive:true});
+stage.addEventListener("touchend", e => {
+  lastTouch = Date.now();
+  if (hlMode) return;                 // with the pen on a touch highlights; swipes are off (use ← →)
+  const t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)){ dx > 0 ? next() : back(); }
+  else if (dy < -60 && Math.abs(dy) > Math.abs(dx)){ toggleMark(); }
+  else if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && Date.now() - tt < 400){ setPaused(!paused); }
+}, {passive:true});
+stage.addEventListener("click", () => { if (hlMode) return; if (Date.now() - lastTouch > 700) setPaused(!paused); });
+
+let rt = null;
+window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (doc && !drag){ cache.clear(); show(true); } }, 250); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && doc){ if (drag) endDrag(); savePos(true); } });
+
+/* ---------- clock ---------- */
+let lastT = performance.now();
+setInterval(() => {
+  const now = performance.now(), dt = now - lastT; lastT = now;
+  if (!doc || paused || openOv || document.hidden) return;
+  // reading time keeps counting while you highlight (it is still reading time)
+  if (mode === "read") M.curMs = (M.curMs || 0) + dt; else revMs += dt; // review time is kept apart from the reading time
+  breakAcc += dt;
+  $("sTime").textContent = fmt(mode === "read" ? M.curMs : revMs);
+  if (S.breakMin && breakAcc >= S.breakMin * 60000 && !holding){
+    breakAcc = 0; setPaused(true);
+    showMsg("Time for a short break", "<p>Stand up, drink water, look far away for 2 minutes. Your place is saved.</p>", [["Continue", hideMsg, true]]);
+    return;
+  }
+  if (!S.manual && !holding){           // the part timer stops while a word is pressed
+    remain -= dt;
+    $("timefill").style.width = Math.max(0, Math.min(100, 100 - remain / (S.secs*1000) * 100)) + "%";
+    if (remain <= 0) next();
+  }
+  if (Math.floor(now / 1000) !== Math.floor((now - dt) / 1000)){ updateStats(); savePos(); }
+}, 100);
+
+renderHome();
+</script>
+</body>
+</html>
