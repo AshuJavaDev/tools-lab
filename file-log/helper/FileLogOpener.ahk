@@ -1,11 +1,13 @@
-; File Log Opener (AutoHotkey v2)  -  v2, no PowerShell (no black flash)
+; File Log Helper (AutoHotkey v2)  -  v2.1: Open (window comes to front) + Sync
 ; Runs quietly in the background (green "H" icon near the clock).
-; When the File Log "Open" button copies a line starting with  filelog:open?p=
-; this script opens File Explorer at that place:
-;   folder  -> opens the folder
-;   file    -> opens its folder with the file highlighted (the file is NOT opened)
-;   missing -> opens the nearest folder that still exists + a short message
-; It reacts ONLY to filelog: lines. Anything else you copy is ignored.
+; It reacts ONLY to two kinds of copied text (anything else you copy is ignored):
+;   filelog:open?p=<path>  -> opens File Explorer at that place
+;       folder  -> opens the folder
+;       file    -> opens its folder with the file highlighted (the file is NOT opened)
+;       missing -> opens the nearest folder that still exists + a short message
+;   filelog:sync           -> scans Downloads + Documents (names, sizes, dates only;
+;                             it never opens or reads inside your files) and puts the
+;                             list on the clipboard. Then press Ctrl+V in File Log.
 
 #Requires AutoHotkey v2.0
 #SingleInstance Force
@@ -21,12 +23,22 @@ if !FileExist(startLink) {
     }
 }
 
+; Folders the Sync scan skips (code build junk, system folders)
+global SkipDirs := Map()
+SkipDirs.CaseSense := "Off"
+for nm in ["node_modules", ".git", ".idea", ".vscode", "target", "build", "dist", "__pycache__", ".gradle", "venv", ".venv", "My Music", "My Pictures", "My Videos"]
+    SkipDirs[nm] := 1
+
 OnClipboardChange(FileLogClip)
 
 FileLogClip(type) {
     if (type != 1)                                   ; 1 = text was copied
         return
     txt := Trim(A_Clipboard)
+    if (txt == "filelog:sync") {
+        SetTimer(DoSync, -10)                        ; run the scan right after this
+        return
+    }
     prefix := "filelog:open?p="
     if !RegExMatch(txt, "^filelog:open\?p=[^\s`"]+$")
         return
@@ -39,9 +51,9 @@ FileLogClip(type) {
         path .= "\"
 
     if DirExist(path) {
-        Run('explorer.exe "' path '"')
+        RunFront('explorer.exe "' path '"')
     } else if FileExist(path) {
-        Run('explorer.exe /select,"' path '"')
+        RunFront('explorer.exe /select,"' path '"')
     } else {
         parent := path
         loop 30 {
@@ -53,8 +65,52 @@ FileLogClip(type) {
                 break
         }
         if DirExist(parent)
-            Run('explorer.exe "' parent '"')
+            RunFront('explorer.exe "' parent '"')
         MsgBox("Not found (moved or renamed?):`n" path, "File Log", "Icon! T6")
+    }
+}
+
+; ---- Sync: list every file in Downloads + Documents ----
+DoSync() {
+    static busy := false
+    if busy
+        return
+    busy := true
+    ToolTip("File Log: scanning Downloads + Documents...")
+    roots := [EnvGet("USERPROFILE") "\Downloads", A_MyDocuments]
+    lines := []
+    out := "FILELOG-SYNC 1`n"
+    for r in roots {
+        if DirExist(r) {
+            out .= "#root`t" r "`n"
+            ScanDir(r, lines)
+        }
+    }
+    for l in lines
+        out .= l "`n"
+    A_Clipboard := out
+    ToolTip()
+    TrayTip("Sync ready: " lines.Length " files.`nGo back to File Log, click on the page, press Ctrl+V.", "File Log")
+    busy := false
+}
+
+ScanDir(dir, lines) {
+    try {
+        Loop Files, dir "\*", "FD" {
+            attr := A_LoopFileAttrib
+            if InStr(attr, "H") || InStr(attr, "S")
+                continue
+            full := A_LoopFileFullPath
+            nm := A_LoopFileName
+            if InStr(attr, "D") {
+                if !SkipDirs.Has(nm)
+                    ScanDir(full, lines)
+                continue
+            }
+            if (SubStr(nm, 1, 2) = "~$" || nm = "desktop.ini" || RegExMatch(nm, "i)\.(tmp|crdownload|part)$"))
+                continue
+            lines.Push(full "`t" A_LoopFileSize "`t" FormatTime(A_LoopFileTimeModified, "yyyy-MM-dd"))
+        }
     }
 }
 
@@ -74,4 +130,35 @@ UriDecode(str) {
         }
     }
     return StrGet(buf, n, "UTF-8")
+}
+
+; Opens Explorer and brings its window to the FRONT.
+; (Windows sometimes keeps a window opened by a background script behind
+;  the browser and only flashes the taskbar icon - this fixes that.)
+RunFront(cmd) {
+    before := Map()
+    for h in WinGetList("ahk_class CabinetWClass")
+        before[h] := 1
+    Run(cmd)
+    target := 0
+    loop 30 {                                        ; wait up to ~3 seconds
+        Sleep(100)
+        for h in WinGetList("ahk_class CabinetWClass") {
+            if !before.Has(h) {
+                target := h
+                break
+            }
+        }
+        if target
+            break
+    }
+    if !target                                       ; Explorer reused a window
+        target := WinExist("ahk_class CabinetWClass")
+    if target {
+        try {
+            if (WinGetMinMax(target) = -1)
+                WinRestore(target)
+            WinActivate(target)
+        }
+    }
 }

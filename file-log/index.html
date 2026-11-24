@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My File Log</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mut:#667085;--line:#e3e6eb;--acc:#2b5fd9;--accbg:#e8efff;--red:#c0392b}
-@media (prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1d2128;--ink:#e8ebf0;--mut:#98a2b3;--line:#2c323b;--acc:#7aa2ff;--accbg:#232c42;--red:#ff7b6b}}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mut:#667085;--line:#e3e6eb;--acc:#2b5fd9;--accbg:#e8efff;--red:#c0392b;--hit:#fff1c2;--hitink:#6b4a00;--nn:#fff4e5;--nnink:#9a5b00}
+@media (prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1d2128;--ink:#e8ebf0;--mut:#98a2b3;--line:#2c323b;--acc:#7aa2ff;--accbg:#232c42;--red:#ff7b6b;--hit:#3d3210;--hitink:#ffd879;--nn:#3a2a12;--nnink:#ffc56b}}
+:root[data-theme=light]{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mut:#667085;--line:#e3e6eb;--acc:#2b5fd9;--accbg:#e8efff;--red:#c0392b;--hit:#fff1c2;--hitink:#6b4a00;--nn:#fff4e5;--nnink:#9a5b00}
+:root[data-theme=dark]{--bg:#14171c;--card:#1d2128;--ink:#e8ebf0;--mut:#98a2b3;--line:#2c323b;--acc:#7aa2ff;--accbg:#232c42;--red:#ff7b6b;--hit:#3d3210;--hitink:#ffd879;--nn:#3a2a12;--nnink:#ffc56b}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 .wrap{max-width:760px;margin:0 auto;padding:14px}
@@ -30,9 +32,10 @@ button.sm{padding:5px 10px;font-size:13px}
 .pth{font:12.5px ui-monospace,Menlo,Consolas,monospace;color:var(--mut);word-break:break-all;cursor:pointer;margin-top:2px}
 .meta{font-size:12.5px;color:var(--mut);margin-top:4px}
 .tag{display:inline-block;background:var(--accbg);color:var(--acc);border-radius:6px;padding:1px 8px;font-size:12px;margin-right:6px}
+.nn{display:inline-block;background:var(--nn);color:var(--nnink);border-radius:6px;padding:1px 8px;font-size:12px;margin-left:6px;font-weight:500}
 .note{margin-top:4px;font-size:14px}
-.acts{margin-top:6px;display:flex;gap:6px}
-.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+.acts{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
 .toast.show{opacity:.95}
 .empty{color:var(--mut);text-align:center;padding:22px 0}
 .top{display:flex;gap:8px;align-items:center}
@@ -40,6 +43,12 @@ button.sm{padding:5px 10px;font-size:13px}
 .warn{color:var(--red);font-size:13px}
 .hint{font-size:12px;color:var(--mut);margin-top:4px}
 .views{display:flex;gap:6px;margin-top:8px}
+.syncbox{display:none;margin-top:10px;padding:10px 12px;border:1px dashed var(--acc);border-radius:10px;background:var(--accbg);color:var(--ink);font-size:13.5px}
+.syncbox.show{display:block}
+.syncbox b{color:var(--acc)}
+.hits{margin:4px 0 6px 16px;font-size:13px}
+.hits div{padding:3px 8px;margin:2px 0;border-radius:6px;background:var(--hit);color:var(--hitink);word-break:break-word}
+.hits .more{background:none;color:var(--mut);padding:2px 8px}
 .olink{display:inline-block;text-decoration:none;cursor:pointer;font-family:inherit;color:var(--acc);background:var(--accbg);border:1px solid var(--acc);border-radius:8px;padding:5px 10px;font-size:13px;font-weight:600}
 .tree summary .olink{padding:1px 8px;font-size:12px;margin-left:8px;font-weight:500}
 .fnote .olink,.leaf .olink{padding:2px 9px;font-size:12px}
@@ -72,7 +81,7 @@ button.sm{padding:5px 10px;font-size:13px}
     <input id="name" placeholder="Backend_Revision_Part2.pdf">
     <div class="row">
       <div><label for="project">Project / area</label><input id="project" list="projList" placeholder="PadhakuGang"><datalist id="projList"></datalist></div>
-      <div><label for="type">Type</label><input id="type" list="typeList" placeholder="PDF"><datalist id="typeList"><option>PDF</option><option>Word</option><option>Excel</option><option>Code</option><option>Image</option><option>Notes</option><option>Video</option><option>Other</option></datalist></div>
+      <div><label for="type">Type</label><input id="type" list="typeList" placeholder="PDF"><datalist id="typeList"><option>PDF</option><option>Word</option><option>Excel</option><option>Code</option><option>Image</option><option>Notes</option><option>Video</option><option>Folder</option><option>Other</option></datalist></div>
     </div>
     <div class="row">
       <div><label for="date">Date saved</label><input id="date" type="date"></div>
@@ -89,14 +98,17 @@ button.sm{padding:5px 10px;font-size:13px}
 
   <div class="card">
     <div class="top">
-      <input id="q" type="search" placeholder="Search name, path, note, project…">
+      <input id="q" type="search" placeholder="Search name, path, note, project… (also files inside folders)">
+      <button class="sm" id="syncBtn" title="Scan Downloads + Documents and update the log">🔄 Sync</button>
       <button class="sm" id="csvBtn" title="Copy everything as CSV">Copy CSV</button>
     </div>
+    <div class="syncbox" id="syncBox"></div>
     <div class="views"><span class="chip on" id="vList">&#9776; List</span><span class="chip" id="vTree">&#128194; Folders</span></div>
     <div class="chips" id="chips"></div>
     <div class="meta" id="count"></div>
     <div id="list"></div>
     <div class="hint" id="status"></div>
+    <div class="hint" id="lastSync"></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -104,24 +116,29 @@ button.sm{padding:5px 10px;font-size:13px}
 <script>
 (function(){
   var $ = function(id){return document.getElementById(id)};
-  var rows = [];            // {id,name,path,project,type,ver,note,date,ts}
-  var activeProj = "";
+  var rows = [];            // {id,name,path,project,type,ver,note,date,ts,size?,needsNote?,inside?,count?}
+  var activeProj = "";      // "" = all, "__needs" = needs note, else project name
   var editing = null;
   var db = null, usingLocal = false, LS = "filelog.v1";
+  var NEEDS = "__needs", SET_MIN = 15;
 
   function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-  function toast(t){var e=$("toast");e.textContent=t;e.classList.add("show");setTimeout(function(){e.classList.remove("show")},1600)}
-  function copy(t){
-    try{navigator.clipboard.writeText(t).then(function(){toast("Copied")},function(){toast("Copy blocked — select and copy manually")})}
+  function toast(t,ms){var e=$("toast");e.textContent=t;e.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove("show")},ms||1600)}
+  function copy(t,msg){
+    try{navigator.clipboard.writeText(t).then(function(){toast(msg||"Copied")},function(){toast("Copy blocked — select and copy manually")})}
     catch(e){toast("Copy blocked — select and copy manually")}
   }
+  function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+  function isFolder(r){return (r.type||"").toLowerCase()==="folder"}
 
   // ---- storage layer ----
   function lsLoad(){try{return JSON.parse(localStorage.getItem(LS)||"[]")}catch(e){return []}}
   function lsSave(){try{localStorage.setItem(LS,JSON.stringify(rows))}catch(e){}}
+  function clean(r){var o={};Object.keys(r).forEach(function(k){if(k!=="id"&&r[k]!==undefined)o[k]=r[k]});return o}
 
   async function init(){
     $("date").value = today();
+    showLastSync();
     var timer = setTimeout(function(){ $("status").textContent = "Still connecting to saved log… (showing what is loaded so far)" },10000);
     try{ db = await window.claude.use("db"); }catch(e){ db = null; }
     if(!db){
@@ -132,7 +149,7 @@ button.sm{padding:5px 10px;font-size:13px}
     db.collection("files").orderBy("ts","desc").onSnapshot(function(snap){
       clearTimeout(timer);
       rows = snap.docs.map(function(d){return Object.assign({}, d.data()||{}, {id:d.id})});
-      if(!snap.metadata.fromCache) $("status").textContent = "";
+      if(!snap.metadata.fromCache && !syncing) $("status").textContent = "";
       render();
     }, function(err){
       clearTimeout(timer);
@@ -146,8 +163,7 @@ button.sm{padding:5px 10px;font-size:13px}
       if(i>=0) rows[i]=r; else rows.unshift(r);
       lsSave(); render(); return;
     }
-    var o = {name:r.name,path:r.path,project:r.project,type:r.type,ver:r.ver,note:r.note,date:r.date,ts:r.ts};
-    await db.doc("files/"+r.id).set(o);
+    await db.doc("files/"+r.id).set(clean(r));
   }
   async function delRow(id){
     if(usingLocal){ rows = rows.filter(function(x){return x.id!==id}); lsSave(); render(); return; }
@@ -166,9 +182,9 @@ button.sm{padding:5px 10px;font-size:13px}
     return parts.length ? parts[parts.length-1] : "";
   }
   function typeFromName(n){
-    var m = /\.([A-Za-z0-9]+)$/.exec(n); if(!m) return "";
+    var m = /\.([A-Za-z0-9]+)$/.exec(n); if(!m) return "Other";
     var e = m[1].toLowerCase();
-    var map={pdf:"PDF",doc:"Word",docx:"Word",xls:"Excel",xlsx:"Excel",csv:"Excel",java:"Code",js:"Code",jsx:"Code",ts:"Code",py:"Code",html:"Code",css:"Code",json:"Code",md:"Notes",txt:"Notes",png:"Image",jpg:"Image",jpeg:"Image",gif:"Image",mp4:"Video",mkv:"Video",zip:"Other"};
+    var map={pdf:"PDF",doc:"Word",docx:"Word",xls:"Excel",xlsx:"Excel",csv:"Excel",java:"Code",js:"Code",jsx:"Code",ts:"Code",py:"Code",html:"Code",css:"Code",json:"Code",ahk:"Code",ps1:"Code",md:"Notes",txt:"Notes",png:"Image",jpg:"Image",jpeg:"Image",gif:"Image",webp:"Image",mp4:"Video",mkv:"Video",zip:"Other"};
     return map[e]||e.toUpperCase();
   }
   $("path").addEventListener("input",function(){
@@ -189,12 +205,15 @@ button.sm{padding:5px 10px;font-size:13px}
     var path=$("path").value.trim().replace(/^["']|["']$/g,"");
     var name=$("name").value.trim() || baseName(path);
     if(!name && !path){ $("formMsg").textContent="Add a path or a name."; return; }
-    var r = {
-      id: editing || (Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
+    var old = editing ? (rows.find(function(x){return x.id===editing})||{}) : {};
+    var note = $("note").value.trim();
+    var r = Object.assign({}, old, {
+      id: editing || newId(),
       name:name, path:path, project:$("project").value.trim(), type:$("type").value.trim(),
-      ver:$("ver").value.trim(), note:$("note").value.trim(), date:$("date").value||today(),
-      ts: editing ? (rows.find(function(x){return x.id===editing})||{}).ts||Date.now() : Date.now()
-    };
+      ver:$("ver").value.trim(), note:note, date:$("date").value||today(),
+      ts: old.ts || Date.now(),
+      needsNote: !!old.needsNote && !note
+    });
     $("saveBtn").disabled=true;
     try{ await saveRow(r); toast(editing?"Updated":"Saved"); var keepProj=$("project").value; clearForm(); $("project").value=keepProj; }
     catch(e){ $("formMsg").textContent="Could not save ("+(e&&e.code||"error")+"). Try again."; }
@@ -208,24 +227,44 @@ button.sm{padding:5px 10px;font-size:13px}
     ["name","type"].forEach(function(k){$(k).dataset.touched="1"});
     $("saveBtn").textContent="Update entry"; $("cancelBtn").style.display="inline-block";
     $("formCard").scrollIntoView({behavior:"smooth"});
+    $("note").focus({preventScroll:true});
   }
 
-  // ---- list ----
+  // ---- search ----
+  function words(q){return q.toLowerCase().split(/\s+/).filter(Boolean)}
+  function hasAll(s,ws){return ws.every(function(w){return s.indexOf(w)>=0})}
   function matches(r,q){
-    if(activeProj && (r.project||"")!==activeProj) return false;
+    if(activeProj===NEEDS){ if(!r.needsNote) return false; }
+    else if(activeProj && (r.project||"")!==activeProj) return false;
     if(!q) return true;
+    var ws=words(q);
     var s=[r.name,r.path,r.project,r.type,r.ver,r.note,r.date].join(" ").toLowerCase();
-    return q.toLowerCase().split(/\s+/).every(function(w){return s.indexOf(w)>=0});
+    if(hasAll(s,ws)) return true;
+    return insideHits(r,q).length>0;
+  }
+  function insideHits(r,q){
+    if(!q || !r.inside) return [];
+    var ws=words(q);
+    return r.inside.split("\n").filter(function(n){return n && hasAll(n.toLowerCase(),ws)});
+  }
+  function hitsBox(r,q){
+    var h=insideHits(r,q); if(!h.length) return null;
+    var box=el("div","hits");
+    h.slice(0,20).forEach(function(n){box.appendChild(el("div","","📄 "+n))});
+    if(h.length>20) box.appendChild(el("div","more","… and "+(h.length-20)+" more matches inside"));
+    return box;
   }
   function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+  function nnBadge(r){return r.needsNote ? el("span","nn","📝 needs note") : null}
 
   function render(){
-    // project chips + datalist
-    var projs = {}; rows.forEach(function(r){ if(r.project) projs[r.project]=(projs[r.project]||0)+1 });
+    var projs = {}, needs=0; rows.forEach(function(r){ if(r.project) projs[r.project]=(projs[r.project]||0)+1; if(r.needsNote) needs++; });
+    if(activeProj===NEEDS && !needs) activeProj="";
     var names = Object.keys(projs).sort();
     var dl=$("projList"); dl.textContent=""; names.forEach(function(p){var o=document.createElement("option");o.value=p;dl.appendChild(o)});
     var ch=$("chips"); ch.textContent="";
     var all=el("span","chip"+(activeProj===""?" on":""),"All ("+rows.length+")"); all.onclick=function(){activeProj="";render()}; ch.appendChild(all);
+    if(needs){ var nc=el("span","chip"+(activeProj===NEEDS?" on":""),"📝 Needs note ("+needs+")"); nc.onclick=function(){activeProj=NEEDS;render()}; ch.appendChild(nc); }
     names.forEach(function(p){var c=el("span","chip"+(activeProj===p?" on":""),p+" ("+projs[p]+")"); c.onclick=function(){activeProj=p;render()}; ch.appendChild(c)});
 
     var q=$("q").value.trim();
@@ -234,19 +273,20 @@ button.sm{padding:5px 10px;font-size:13px}
     $("count").textContent = shown.length+" of "+rows.length+" entries";
     if(view==="tree"){ renderTree(shown,q); return; }
     var list=$("list"); list.textContent="";
-    if(!shown.length){ list.appendChild(el("div","empty", rows.length?"Nothing matches your search.":"No entries yet. Add your first file above.")); return; }
+    if(!shown.length){ list.appendChild(el("div","empty", rows.length?"Nothing matches your search.":"No entries yet. Add your first file above, or press 🔄 Sync.")); return; }
     shown.forEach(function(r){
       var it=el("div","item");
-      it.appendChild(el("div","nm",r.name||"(no name)"));
+      var nm=el("div","nm",(isFolder(r)?"📁 ":"")+(r.name||"(no name)")); var b=nnBadge(r); if(b) nm.appendChild(b); it.appendChild(nm);
       if(r.path){ var p=el("div","pth",r.path); p.title="Tap to copy path"; p.onclick=function(){copy(r.path)}; it.appendChild(p); }
       var m=el("div","meta");
       if(r.project) m.appendChild(el("span","tag",r.project));
-      m.appendChild(document.createTextNode([r.type,r.ver,r.date].filter(Boolean).join(" · ")));
+      m.appendChild(document.createTextNode([r.type,r.ver,r.date,r.count?r.count+" files inside":""].filter(Boolean).join(" · ")));
       it.appendChild(m);
       if(r.note) it.appendChild(el("div","note",r.note));
+      var hb=hitsBox(r,q); if(hb) it.appendChild(hb);
       var a=el("div","acts");
-      var fb=el("button","sm","\uD83D\uDCC2 Copy folder"); fb.title="Copy the folder path \u2014 paste it in File Explorer's address bar to open the folder"; fb.onclick=function(){copy(folderOf(r))};
-      var eb=el("button","sm","Edit"); eb.onclick=function(){startEdit(r)};
+      var fb=el("button","sm","📂 Copy folder"); fb.title="Copy the folder path — paste it in File Explorer's address bar to open the folder"; fb.onclick=function(){copy(folderOf(r))};
+      var eb=el("button","sm",r.needsNote?"Add note":"Edit"); eb.onclick=function(){startEdit(r)};
       var db_=el("button","sm","Delete");
       db_.onclick=function(){
         if(db_.dataset.armed){
@@ -271,21 +311,20 @@ button.sm{padding:5px 10px;font-size:13px}
   $("vList").onclick=function(){setView("list")};
   $("vTree").onclick=function(){setView("tree")};
   markView();
-  // Open button: copies "filelog:open?p=<path>"; FileLogOpener.ahk (AutoHotkey v2) on the laptop opens File Explorer
   function openLink(p){
-    var a=document.createElement("button"); a.type="button"; a.className="olink"; a.textContent="\uD83D\uDCC2 Open";
+    var a=document.createElement("button"); a.type="button"; a.className="olink"; a.textContent="📂 Open";
     var url="filelog:open?p="+encodeURIComponent((p||"").trim().replace(/^["']|["']$/g,""));
     a.title="Open in File Explorer (needs FileLogOpener.ahk running on this laptop)";
     a.addEventListener("click",function(ev){
       ev.stopPropagation(); ev.preventDefault();
-      try{ navigator.clipboard.writeText(url).then(function(){toast("Opening in File Explorer\u2026")},function(){toast("Copy blocked \u2014 use Copy folder")}); }
-      catch(e){ toast("Copy blocked \u2014 use Copy folder"); }
+      try{ navigator.clipboard.writeText(url).then(function(){toast("Opening in File Explorer…")},function(){toast("Copy blocked — use Copy folder")}); }
+      catch(e){ toast("Copy blocked — use Copy folder"); }
     });
     return a;
   }
   function folderOf(r){
     var p=(r.path||"").trim().replace(/^["']|["']$/g,"").replace(/[\\\/]+$/,"");
-    if((r.type||"").toLowerCase()==="folder") return p;
+    if(isFolder(r)) return p;
     var i=Math.max(p.lastIndexOf("\\"),p.lastIndexOf("/"));
     var last=i>=0?p.slice(i+1):p;
     if(r.name && last.toLowerCase()===r.name.toLowerCase() && i>0) return p.slice(0,i);
@@ -295,30 +334,30 @@ button.sm{padding:5px 10px;font-size:13px}
   function splitPath(p){ return (p||"").trim().replace(/^["']|["']$/g,"").split(/[\\\/]/).filter(Boolean); }
   function renderTree(shown,q){
     var list=$("list"); list.textContent="";
-    if(!shown.length){ list.appendChild(el("div","empty", rows.length?"Nothing matches your search.":"No entries yet. Add your first file above.")); return; }
+    if(!shown.length){ list.appendChild(el("div","empty", rows.length?"Nothing matches your search.":"No entries yet. Add your first file above, or press 🔄 Sync.")); return; }
     function mk(){return {kids:{},files:[],info:null,count:0}}
     var root=mk();
     function node(parts,pre){ var n=root, acc=(pre||[]).slice(); parts.forEach(function(s){ acc.push(s); if(!n.kids[s]) n.kids[s]=mk(); n=n.kids[s]; if(!n.full) n.full=acc.join("\\"); }); return n; }
     shown.forEach(function(r){
       var parts=splitPath(r.path), pre=[];
       if(parts.length>=3 && /^[a-z]:$/i.test(parts[0]) && parts[1].toLowerCase()==="users"){ pre=parts.slice(0,3); parts=parts.slice(3); }
-      if((r.type||"").toLowerCase()==="folder" && parts.length){ var fnode=node(parts,pre); if(!fnode.info) fnode.info=r; else fnode.files.push(r); return; }
+      if(isFolder(r) && parts.length){ var fnode=node(parts,pre); if(!fnode.info) fnode.info=r; else fnode.files.push(r); return; }
       if(!parts.length){ root.files.push(r); return; }
       var last=parts[parts.length-1];
       var dir=(last.toLowerCase()===(r.name||"").toLowerCase())?parts.slice(0,-1):parts;
       if(!dir.length) root.files.push(r); else node(dir,pre).files.push(r);
     });
-    function countAll(n){ var c=n.files.length; Object.keys(n.kids).forEach(function(k){c+=countAll(n.kids[k])+(n.kids[k].info?1:0)}); n.count=c; return c; }
+    function countAll(n){ var c=n.files.length+((n.info&&n.info.count)||0); Object.keys(n.kids).forEach(function(k){c+=countAll(n.kids[k])+(n.kids[k].info?1:0)}); n.count=c; return c; }
     countAll(root);
     function leaf(r){
       var d=el("div","leaf");
-      d.appendChild(el("div","ln","\uD83D\uDCC4 "+(r.name||"(no name)")));
-      d.appendChild(el("div","lm",[r.project,r.type,r.ver,r.date].filter(Boolean).join(" \u00B7 ")));
+      var ln=el("div","ln","📄 "+(r.name||"(no name)")); var b=nnBadge(r); if(b) ln.appendChild(b); d.appendChild(ln);
+      d.appendChild(el("div","lm",[r.project,r.type,r.ver,r.date].filter(Boolean).join(" · ")));
       if(r.note) d.appendChild(el("div","lnote",r.note));
       var a=el("div","acts");
-      var fb=el("button","sm","\uD83D\uDCC2 Copy folder"); fb.title="Paste in File Explorer's address bar to open the folder"; fb.onclick=function(){copy(folderOf(r))};
+      var fb=el("button","sm","📂 Copy folder"); fb.title="Paste in File Explorer's address bar to open the folder"; fb.onclick=function(){copy(folderOf(r))};
       var cb=el("button","sm","Copy file path"); cb.title="Pasting this in Explorer OPENS the file"; cb.onclick=function(){copy(r.path||"")};
-      var eb=el("button","sm","Edit"); eb.onclick=function(){startEdit(r)};
+      var eb=el("button","sm",r.needsNote?"Add note":"Edit"); eb.onclick=function(){startEdit(r)};
       if(r.path) a.appendChild(openLink(r.path)); a.appendChild(fb); a.appendChild(cb); a.appendChild(eb); d.appendChild(a);
       return d;
     }
@@ -326,17 +365,19 @@ button.sm{padding:5px 10px;font-size:13px}
       var det=document.createElement("details");
       det.open = q ? true : (Object.prototype.hasOwnProperty.call(openSet,key) ? !!openSet[key] : depth<2);
       var s=document.createElement("summary");
-      s.appendChild(el("span","fn","\uD83D\uDCC1 "+name));
+      s.appendChild(el("span","fn","📁 "+name));
       var total=n.count; if(total) s.appendChild(el("span","cnt",total+" inside"));
+      if(n.info){ var b=nnBadge(n.info); if(b) s.appendChild(b); }
       if(n.full && /^[a-z]:\\/i.test(n.full)) s.appendChild(openLink(n.full));
       det.appendChild(s);
       det.addEventListener("toggle",function(){ if($("q").value.trim()) return; openSet[key]=det.open; try{localStorage.setItem("filelog.open",JSON.stringify(openSet))}catch(e){} });
       if(n.info){
-        var fn=el("div","fnote",(n.info.note||"")+(n.info.ver?" \u00B7 "+n.info.ver:"")+" ");
+        var fn=el("div","fnote",(n.info.note||"")+(n.info.ver?" · "+n.info.ver:"")+" ");
         var cb=el("button","sm","Copy path"); cb.onclick=function(){copy(n.info.path||"")};
-        var e=el("button","sm","Edit"); e.onclick=function(){startEdit(n.info)};
+        var e=el("button","sm",n.info.needsNote?"Add note":"Edit"); e.onclick=function(){startEdit(n.info)};
         fn.appendChild(cb); fn.appendChild(document.createTextNode(" ")); fn.appendChild(e);
         det.appendChild(fn);
+        var hb=hitsBox(n.info,q); if(hb) det.appendChild(hb);
       }
       Object.keys(n.kids).sort(function(a,b){return a.localeCompare(b)}).forEach(function(k){ det.appendChild(build(n.kids[k],key+"/"+k,k,depth+1)); });
       n.files.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"")}).forEach(function(r){ det.appendChild(leaf(r)); });
@@ -359,6 +400,187 @@ button.sm{padding:5px 10px;font-size:13px}
     });
     copy(lines.join("\n"));
   };
+
+  // ---- SYNC ----
+  // 1) Sync button copies "filelog:sync"  2) FileLogOpener.ahk scans Downloads + Documents
+  // 3) it puts the file list on the clipboard  4) Ctrl+V on this page  5) the log is updated
+  var syncing=false;
+  function showBox(html){ var b=$("syncBox"); b.innerHTML=html; b.classList.add("show"); }
+  function hideBox(){ $("syncBox").classList.remove("show"); }
+  function showLastSync(){ try{ var t=localStorage.getItem("filelog.lastSync"); $("lastSync").textContent = t ? "Last sync: "+t : ""; }catch(e){} }
+
+  $("syncBtn").onclick=function(){
+    if(syncing) return;
+    try{
+      navigator.clipboard.writeText("filelog:sync").then(function(){
+        showBox("<b>Scanning your laptop…</b> Wait for the <b>“Sync ready”</b> message near the clock (a few seconds), then click anywhere on this page and press <b>Ctrl+V</b>.");
+      },function(){ toast("Copy blocked — try again"); });
+    }catch(e){ toast("Copy blocked — try again"); }
+  };
+
+  document.addEventListener("paste",function(e){
+    var t=(e.clipboardData||window.clipboardData);
+    t = t ? t.getData("text") : "";
+    if(t && t.indexOf("FILELOG-SYNC")===0){ e.preventDefault(); runSync(t); }
+  });
+
+  function norm(p){return (p||"").trim().replace(/^["']|["']$/g,"").replace(/\//g,"\\").replace(/\\+$/,"").toLowerCase()}
+  function parentDir(np){var i=np.lastIndexOf("\\");return i>0?np.slice(0,i):""}
+
+  function buildPlan(text){
+    var lines=text.split(/\r?\n/), roots=[], files=[];
+    lines.slice(1).forEach(function(l){
+      if(!l) return;
+      var f=l.split("\t");
+      if(f[0]==="#root"){ if(f[1]) roots.push({np:norm(f[1]),raw:f[1].replace(/\\+$/,"")}); return; }
+      if(f.length<3) return;
+      files.push({path:f[0],np:norm(f[0]),name:f[0].split("\\").pop(),size:+f[1]||0,date:f[2]});
+    });
+    if(!roots.length) return null;
+    var isRoot={}; roots.forEach(function(r){isRoot[r.np]=1});
+    function inRoots(np){return roots.some(function(r){return np.indexOf(r.np+"\\")===0})}
+    var scan={}, dirs={};
+    files.forEach(function(f){ scan[f.np]=f; var d=parentDir(f.np); while(d && !dirs[d]){ dirs[d]=1; d=parentDir(d); } });
+
+    var managed=rows.filter(function(r){return r.path && inRoots(norm(r.path))});
+    var fileEntries=managed.filter(function(r){return !isFolder(r)});
+    var folderEntries=managed.filter(isFolder);
+    // auto entries = added by an earlier sync and never given a note (safe to fold into a folder)
+    function isAuto(r){return r.needsNote && !r.note && !r.ver}
+    var fileNP=fileEntries.filter(function(r){return !isAuto(r)}).map(function(r){return norm(r.path)});
+    var dirCount={}; files.forEach(function(f){ var d=parentDir(f.np); dirCount[d]=(dirCount[d]||0)+1; });
+    // every logged folder can hold files in its "inside" list
+    var sets=folderEntries.map(function(r){var np=norm(r.path);var p=np+"\\";return {r:r,np:np,inside:[],last:"",pure:!fileNP.some(function(n){return n.indexOf(p)===0})}});
+    sets.sort(function(a,b){return b.np.length-a.np.length});
+    // a file folds into the deepest logged folder above it when that folder is a pure set
+    // (nothing logged one by one inside) OR the file sits in a big pile (15+ files in one folder)
+    function setOf(np){
+      for(var i=0;i<sets.length;i++){
+        if(np.indexOf(sets[i].np+"\\")===0){ return (sets[i].pure || (dirCount[parentDir(np)]||0)>=SET_MIN) ? sets[i] : null; }
+      }
+      return null;
+    }
+
+    var entryNP={}, entryAnc={}, dirProj={};
+    managed.forEach(function(r){
+      var n=norm(r.path);
+      if(isAuto(r) && !isFolder(r) && setOf(n)) return;   // will be folded in below
+      entryNP[n]=r;
+      var d=n; while(d && !entryAnc[d]){ entryAnc[d]=1; d=parentDir(d); }
+      if(r.project){ [isFolder(r)?n:parentDir(n)].forEach(function(k){ (dirProj[k]=dirProj[k]||{})[r.project]=((dirProj[k]||{})[r.project]||0)+1; }); }
+    });
+    function projFor(np){
+      var d=parentDir(np);
+      while(d){ var m=dirProj[d]; if(m){ return Object.keys(m).sort(function(a,b){return m[b]-m[a]})[0]; } d=parentDir(d); }
+      return "";
+    }
+
+    var plan={add:[],upd:[],del:[],moved:0};
+    var loose=[];
+    var autoByNP={}; fileEntries.forEach(function(r){ if(isAuto(r)) autoByNP[norm(r.path)]=r; });
+    var folded={};
+    files.forEach(function(f){
+      if(entryNP[f.np]) return;                       // logged on its own (with a note) — keep
+      var s=setOf(f.np);
+      if(s){
+        s.inside.push(f.path.slice(s.np.length+1)); if(f.date>s.last) s.last=f.date;
+        var a=autoByNP[f.np]; if(a && !folded[a.id]){ folded[a.id]=1; plan.del.push(a); }   // clean up old clutter
+        return;
+      }
+      loose.push(f);
+    });
+    // drop folded auto entries from the "gone" check below
+    fileEntries=fileEntries.filter(function(r){return !folded[r.id]});
+
+    // gone single files: moved (same name, unique match) or deleted
+    var byName={}; loose.forEach(function(f){ var k=f.name.toLowerCase(); (byName[k]=byName[k]||[]).push(f); });
+    var used=new Set();
+    fileEntries.forEach(function(r){
+      var n=norm(r.path); if(scan[n]||dirs[n]) return;
+      var c=(byName[(r.name||"").toLowerCase()]||[]).filter(function(f){return !used.has(f) && (!r.size || r.size===f.size)});
+      if(c.length===1){ used.add(c[0]); plan.moved++; plan.upd.push(Object.assign({},r,{path:c[0].path,size:c[0].size})); }
+      else plan.del.push(r);
+    });
+    loose=loose.filter(function(f){return !used.has(f)});
+    // gone folders
+    var delFolder={};
+    folderEntries.forEach(function(r){ var n=norm(r.path); if(!dirs[n] && !scan[n]){ plan.del.push(r); delFolder[r.id]=1; } });
+    // sets: refresh the list of files inside
+    sets.forEach(function(s){
+      if(delFolder[s.r.id]) return;
+      s.inside.sort(function(a,b){return a.localeCompare(b)});
+      var txt=s.inside.join("\n");
+      if(txt!==(s.r.inside||"") || s.inside.length!==(s.r.count||0)){
+        plan.upd.push(Object.assign({},s.r,{inside:txt,count:s.inside.length}));
+      }
+    });
+
+    // new files: big brand-new folders become one folder entry, the rest become single entries
+    var groups={}, singles=[];
+    loose.forEach(function(f){
+      var cand="", d=parentDir(f.np);
+      while(d && !isRoot[d] && inRoots(d) && !entryAnc[d]){ cand=d; d=parentDir(d); }
+      if(cand){ (groups[cand]=groups[cand]||[]).push(f); } else singles.push(f);
+    });
+    var now=Date.now(), k=0;
+    Object.keys(groups).forEach(function(g){
+      var fs=groups[g];
+      if(fs.length<SET_MIN){ singles=singles.concat(fs); return; }
+      var raw=fs[0].path.slice(0,g.length), names=fs.map(function(f){return f.path.slice(g.length+1)}).sort(function(a,b){return a.localeCompare(b)});
+      var last=fs.reduce(function(m,f){return f.date>m?f.date:m},"");
+      plan.add.push({id:newId(),name:raw.split("\\").pop(),path:raw,project:projFor(g+"\\x"),type:"Folder",ver:"",note:"",
+        date:last||today(),ts:now+(k++),needsNote:true,inside:names.join("\n"),count:names.length});
+    });
+    singles.forEach(function(f){
+      plan.add.push({id:newId(),name:f.name,path:f.path,project:projFor(f.np),type:typeFromName(f.name),ver:"",note:"",
+        date:f.date||today(),ts:now+(k++),size:f.size,needsNote:true});
+    });
+    plan.scanned=files.length;
+    return plan;
+  }
+
+  async function runSync(text){
+    if(syncing) return;
+    var plan;
+    try{ plan=buildPlan(text); }catch(e){ plan=null; }
+    if(!plan){ showBox("<b>That paste didn’t look like a sync list.</b> Press 🔄 Sync again."); return; }
+    syncing=true; $("syncBtn").disabled=true;
+    var total=plan.add.length+plan.upd.length+plan.del.length, done=0, failed=0;
+    function prog(){ showBox("<b>Updating your log…</b> "+done+" of "+total); }
+    prog();
+    if(usingLocal){
+      var delIds={}; plan.del.forEach(function(r){delIds[r.id]=1});
+      var upd={}; plan.upd.forEach(function(r){upd[r.id]=r});
+      rows=rows.filter(function(r){return !delIds[r.id]}).map(function(r){return upd[r.id]||r});
+      rows=plan.add.concat(rows); lsSave(); render(); done=total;
+    } else {
+      var jobs=[];
+      plan.add.concat(plan.upd).forEach(function(r){ jobs.push(function(){ return db.doc("files/"+r.id).set(clean(r)); }); });
+      plan.del.forEach(function(r){ jobs.push(function(){ return db.collection("files").doc(r.id).delete(); }); });
+      var next=0;
+      async function worker(){
+        while(next<jobs.length){
+          var j=jobs[next++];
+          try{ await j(); }catch(e){ failed++; }
+          done++; prog();
+        }
+      }
+      var pool=[]; for(var w=0;w<15;w++) pool.push(worker());
+      await Promise.all(pool);
+    }
+    var stamp=new Date().toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
+    try{ localStorage.setItem("filelog.lastSync",stamp+" ("+plan.scanned+" files scanned)"); }catch(e){}
+    showLastSync();
+    var newCount=plan.add.length, delCount=plan.del.length, folderUpd=plan.upd.length-plan.moved;
+    var msg = total ? ("<b>Sync done.</b> "+newCount+" new"+(newCount?" (marked 📝 needs note)":"")+" · "+delCount+" removed · "+plan.moved+" moved · "+folderUpd+" folder lists updated.")
+                    : "<b>Sync done.</b> Everything already matches your laptop.";
+    if(failed) msg+=" <span class='warn'>"+failed+" changes failed — press Sync again.</span>";
+    showBox(msg);
+    if(newCount && !$("q").value.trim()){ activeProj=NEEDS; }
+    render();
+    syncing=false; $("syncBtn").disabled=false;
+    setTimeout(hideBox,15000);
+  }
 
   init();
 })();
